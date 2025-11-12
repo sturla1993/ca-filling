@@ -24,9 +24,9 @@ export const SettingsDialog = ({ tankTarget, siloTarget, onSave }: SettingsDialo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="lg" className="gap-2">
-          <Settings className="w-5 h-5" />
-          Innstillinger
+        <Button variant="outline" size="sm" className="gap-1.5">
+          <Settings className="w-4 h-4" />
+          <span className="text-xs">Innst.</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md bg-card border-border">

@@ -115,82 +115,99 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-bold text-foreground">IBC Fyllesystem</h1>
+    <div className="min-h-screen bg-background p-2">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-xl font-bold text-foreground">IBC Fyllesystem</h1>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <Thermometer className="w-4 h-4 text-primary" />
+            <span className="text-xs font-medium text-foreground">
+              <span className="font-mono text-sm">{tankTemp.toFixed(1)}°C</span>
+            </span>
+          </div>
           <SettingsDialog
             tankTarget={tankTarget}
             siloTarget={siloTarget}
             onSave={handleSettingsSave}
           />
         </div>
-        
-        {/* System Status */}
-        <Card className="p-4 bg-card border-border">
-          <div className="flex flex-wrap gap-6">
-            <StatusIndicator
-              status={pumpStatus}
-              label={`Pumpe: ${pumpStatus === "running" ? "Kjører" : "Stoppet"}`}
-            />
-            <StatusIndicator
-              status={valveStatus}
-              label={`Magnetventil: ${valveStatus === "running" ? "Åpen" : "Lukket"}`}
-            />
-            <StatusIndicator
-              status={damperStatus}
-              label={`Spjeld: ${damperStatus === "running" ? "Åpen" : "Lukket"}`}
-            />
-            <StatusIndicator
-              status={vibratorStatus}
-              label={`Vibrator: ${vibratorStatus === "running" ? "Kjører" : "Av"}`}
-            />
-            <div className="flex items-center gap-2 ml-auto">
-              <Thermometer className="w-5 h-5 text-primary" />
-              <span className="text-sm font-medium text-foreground">
-                Tanktemp: <span className="font-mono text-lg">{tankTemp.toFixed(1)}°C</span>
-              </span>
-            </div>
-          </div>
-        </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Panel - Controls */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Fill Mode Indicator */}
-          <Card className="p-4 bg-card border-border">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-foreground">Fyllemodus</h2>
-              <div className="flex items-center gap-3">
-                {fillMode !== "idle" && (
-                  <div className="flex items-center gap-2 px-4 py-2 bg-primary/20 rounded-lg border border-primary">
-                    <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
-                    <span className="font-semibold text-foreground uppercase">
-                      {fillMode === "coarse" ? "Grovfylling" : "Finfylling"}
-                    </span>
-                  </div>
-                )}
-                {fillMode === "idle" && (
-                  <div className="px-4 py-2 bg-muted rounded-lg">
-                    <span className="text-muted-foreground">Inaktiv</span>
-                  </div>
-                )}
+      <div className="grid grid-cols-3 gap-2">
+        {/* Left Panel - IBC Visualization (moved to top right) */}
+        <div className="col-span-1">
+          <IBCVisualization
+            currentWeight={currentWeight}
+            targetWeight={totalTarget}
+            maxCapacity={maxCapacity}
+          />
+          
+          {/* Warnings */}
+          {tankTemp > 30 && (
+            <Card className="p-2 bg-status-warning/20 border-status-warning mt-2">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-status-warning" />
+                <div className="text-xs text-foreground font-semibold">Temp advarsel</div>
               </div>
+            </Card>
+          )}
+        </div>
+
+        {/* Right Panel - Controls */}
+        <div className="col-span-2 space-y-2">
+          {/* Status Bar */}
+          <Card className="p-2 bg-card border-border">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <StatusIndicator
+                status={pumpStatus}
+                label={`Pumpe: ${pumpStatus === "running" ? "Kjører" : "Av"}`}
+              />
+              <StatusIndicator
+                status={valveStatus}
+                label={`Ventil: ${valveStatus === "running" ? "Åpen" : "Lukket"}`}
+              />
+              <StatusIndicator
+                status={damperStatus}
+                label={`Spjeld: ${damperStatus === "running" ? "Åpen" : "Lukket"}`}
+              />
+              <StatusIndicator
+                status={vibratorStatus}
+                label={`Vibrator: ${vibratorStatus === "running" ? "På" : "Av"}`}
+              />
+            </div>
+          </Card>
+
+          {/* Fill Mode Indicator */}
+          <Card className="p-2 bg-card border-border">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground">Modus:</span>
+              {fillMode !== "idle" && (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/20 rounded border border-primary">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <span className="font-semibold text-foreground text-xs uppercase">
+                    {fillMode === "coarse" ? "Grovfylling" : "Finfylling"}
+                  </span>
+                </div>
+              )}
+              {fillMode === "idle" && (
+                <div className="px-2 py-1 bg-muted rounded">
+                  <span className="text-muted-foreground text-xs">Inaktiv</span>
+                </div>
+              )}
             </div>
           </Card>
 
           {/* Tank Controls */}
-          <Card className="p-6 bg-card border-border">
-            <h2 className="text-xl font-semibold mb-4 text-foreground flex items-center gap-2">
-              <Droplets className="w-6 h-6 text-primary" />
-              Fylling fra tank
+          <Card className="p-2 bg-card border-border">
+            <h2 className="text-sm font-semibold mb-2 text-foreground flex items-center gap-1.5">
+              <Droplets className="w-4 h-4 text-primary" />
+              Tank
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-2">
               <ControlButton
                 icon={Play}
-                label="Start fylling"
+                label="Start"
                 status={isFillingFromTank && fillMode !== "idle" ? "running" : "idle"}
                 onClick={startFillingFromTank}
                 disabled={fillMode !== "idle"}
@@ -205,7 +222,7 @@ const Index = () => {
               />
               <ControlButton
                 icon={Droplets}
-                label="Magnetventil"
+                label="Ventil"
                 status={valveStatus}
                 active={valveStatus === "running"}
                 onClick={() => {}}
@@ -215,22 +232,22 @@ const Index = () => {
           </Card>
 
           {/* Silo Controls */}
-          <Card className="p-6 bg-card border-border">
-            <h2 className="text-xl font-semibold mb-4 text-foreground flex items-center gap-2">
-              <Wind className="w-6 h-6 text-primary" />
-              Fylling fra silo
+          <Card className="p-2 bg-card border-border">
+            <h2 className="text-sm font-semibold mb-2 text-foreground flex items-center gap-1.5">
+              <Wind className="w-4 h-4 text-primary" />
+              Silo
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-2">
               <ControlButton
                 icon={Play}
-                label="Start fylling"
+                label="Start"
                 status={!isFillingFromTank && fillMode !== "idle" ? "running" : "idle"}
                 onClick={startFillingFromSilo}
                 disabled={fillMode !== "idle"}
               />
               <ControlButton
                 icon={Wind}
-                label="Spjeld (5/2)"
+                label="Spjeld"
                 status={damperStatus}
                 active={damperStatus === "running"}
                 onClick={() => {}}
@@ -248,7 +265,7 @@ const Index = () => {
           </Card>
 
           {/* Emergency Stop */}
-          <Card className="p-6 bg-destructive/20 border-destructive">
+          <Card className="p-2 bg-destructive/20 border-destructive">
             <ControlButton
               icon={Square}
               label="NØDSTOPP"
@@ -257,30 +274,6 @@ const Index = () => {
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive"
             />
           </Card>
-        </div>
-
-        {/* Right Panel - Visualization */}
-        <div className="space-y-6">
-          <IBCVisualization
-            currentWeight={currentWeight}
-            targetWeight={totalTarget}
-            maxCapacity={maxCapacity}
-          />
-
-          {/* Warnings */}
-          {tankTemp > 30 && (
-            <Card className="p-4 bg-status-warning/20 border-status-warning">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="w-6 h-6 text-status-warning" />
-                <div>
-                  <div className="font-semibold text-foreground">Temperaturadvarsel</div>
-                  <div className="text-sm text-muted-foreground">
-                    Tanktemperatur er over normalt nivå
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
         </div>
       </div>
     </div>

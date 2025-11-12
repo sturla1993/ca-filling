@@ -32,7 +32,7 @@ export const ControlButton = ({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex flex-col items-center justify-center h-32 w-full gap-3 border-2 transition-all",
+        "flex flex-col items-center justify-center h-20 w-full gap-1.5 border-2 transition-all",
         statusColors[status],
         active && "ring-2 ring-primary",
         disabled && "opacity-50 cursor-not-allowed",
@@ -40,8 +40,8 @@ export const ControlButton = ({
       )}
       variant="outline"
     >
-      <Icon className="w-10 h-10" />
-      <span className="text-sm font-semibold">{label}</span>
+      <Icon className="w-6 h-6" />
+      <span className="text-xs font-semibold">{label}</span>
     </Button>
   );
 };
