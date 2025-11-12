@@ -135,26 +135,7 @@ const Index = () => {
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        {/* Left Panel - IBC Visualization (moved to top right) */}
-        <div className="col-span-1">
-          <IBCVisualization
-            currentWeight={currentWeight}
-            targetWeight={totalTarget}
-            maxCapacity={maxCapacity}
-          />
-          
-          {/* Warnings */}
-          {tankTemp > 30 && (
-            <Card className="p-2 bg-status-warning/20 border-status-warning mt-2">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-status-warning" />
-                <div className="text-xs text-foreground font-semibold">Temp advarsel</div>
-              </div>
-            </Card>
-          )}
-        </div>
-
-        {/* Right Panel - Controls */}
+        {/* Left Panel - Controls */}
         <div className="col-span-2 space-y-2">
           {/* Status Bar */}
           <Card className="p-2 bg-card border-border">
@@ -274,6 +255,25 @@ const Index = () => {
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive"
             />
           </Card>
+        </div>
+
+        {/* Right Panel - IBC Visualization */}
+        <div className="col-span-1">
+          <IBCVisualization
+            currentWeight={currentWeight}
+            targetWeight={totalTarget}
+            maxCapacity={maxCapacity}
+          />
+          
+          {/* Warnings */}
+          {tankTemp > 30 && (
+            <Card className="p-2 bg-status-warning/20 border-status-warning mt-2">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-status-warning" />
+                <div className="text-xs text-foreground font-semibold">Temp advarsel</div>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>

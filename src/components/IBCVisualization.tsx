@@ -17,7 +17,7 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity }: I
 
   return (
     <div className="flex flex-col items-center gap-2 p-2 bg-card rounded border border-border">
-      <h3 className="text-sm font-semibold text-foreground">IBC Container</h3>
+      <h3 className="text-sm font-semibold text-foreground">IBC</h3>
       
       {/* IBC Container Visualization */}
       <div className="relative w-32 h-44 bg-tank-empty border-2 border-border rounded-lg overflow-hidden">
@@ -52,7 +52,7 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity }: I
       </div>
 
       {/* Weight displays */}
-      <div className="grid grid-cols-3 gap-1 w-full">
+      <div className="grid grid-cols-2 gap-2 w-full">
         <div className="text-center">
           <div className="text-[10px] text-muted-foreground mb-0.5">Nå</div>
           <div className="text-sm font-mono font-bold text-foreground">
@@ -65,14 +65,6 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity }: I
           <div className="text-[10px] text-muted-foreground mb-0.5">Mål</div>
           <div className="text-sm font-mono font-bold text-status-warning">
             {targetWeight.toFixed(1)}
-          </div>
-          <div className="text-[9px] text-muted-foreground">kg</div>
-        </div>
-        
-        <div className="text-center">
-          <div className="text-[10px] text-muted-foreground mb-0.5">Max</div>
-          <div className="text-sm font-mono font-bold text-muted-foreground">
-            {maxCapacity}
           </div>
           <div className="text-[9px] text-muted-foreground">kg</div>
         </div>
