@@ -34,7 +34,7 @@ const Index = () => {
   const [isFillingFromTank, setIsFillingFromTank] = useState(false);
   const [tankFilled, setTankFilled] = useState(false);
 
-  const maxCapacity = 1000;
+  const totalTarget = tankTarget + siloTarget;
 
   // Simulate temperature changes
   useEffect(() => {
@@ -276,8 +276,8 @@ const Index = () => {
         <div className="col-span-1">
           <IBCVisualization
             currentWeight={currentWeight}
-            targetWeight={tankFilled ? tankTarget + siloTarget : (isFillingFromTank ? tankTarget : siloTarget)}
-            maxCapacity={maxCapacity}
+            targetWeight={totalTarget}
+            maxCapacity={totalTarget}
           />
           
           {/* Warnings */}
