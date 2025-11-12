@@ -280,7 +280,6 @@ const Index = () => {
               status={vibratorStatus}
               active={vibratorStatus === "running"}
               onClick={toggleVibrator}
-              disabled={fillMode === "idle"}
               className={vibratorStatus === "running" ? "border-status-running" : ""}
             />
           </Card>
