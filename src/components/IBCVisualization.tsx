@@ -5,9 +5,11 @@ interface IBCVisualizationProps {
   currentWeight: number;
   targetWeight: number;
   maxCapacity: number;
+  tankWeight: number;
+  siloWeight: number;
 }
 
-export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity }: IBCVisualizationProps) => {
+export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tankWeight, siloWeight }: IBCVisualizationProps) => {
   const [fillPercentage, setFillPercentage] = useState(0);
   const targetPercentage = (targetWeight / maxCapacity) * 100;
 
@@ -27,16 +29,29 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity }: I
           style={{ bottom: `${targetPercentage}%` }}
         />
         
-        {/* Fill level */}
+        {/* Tank fill level (bottom layer) */}
         <div
-          className={cn(
-            "absolute bottom-0 w-full bg-tank-fill transition-all duration-500 ease-out",
-            fillPercentage >= targetPercentage && "animate-pulse"
-          )}
-          style={{ height: `${Math.min(fillPercentage, 100)}%` }}
+          className="absolute bottom-0 w-full bg-tank-fill transition-all duration-500 ease-out"
+          style={{ height: `${Math.min((tankWeight / maxCapacity) * 100, 100)}%` }}
         >
           <div className="absolute inset-0 bg-gradient-to-t from-tank-fill to-transparent opacity-50" />
         </div>
+        
+        {/* Silo fill level (top layer) */}
+        {siloWeight > 0 && (
+          <div
+            className={cn(
+              "absolute w-full bg-amber-400 transition-all duration-500 ease-out",
+              fillPercentage >= targetPercentage && "animate-pulse"
+            )}
+            style={{ 
+              bottom: `${Math.min((tankWeight / maxCapacity) * 100, 100)}%`,
+              height: `${Math.min((siloWeight / maxCapacity) * 100, 100)}%` 
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-t from-amber-500 to-transparent opacity-50" />
+          </div>
+        )}
         
         {/* Capacity markers */}
         {[25, 50, 75, 100].map((mark) => (
