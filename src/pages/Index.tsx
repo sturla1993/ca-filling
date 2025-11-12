@@ -99,7 +99,9 @@ const Index = () => {
 
   const startFillingFromTank = () => {
     setIsFillingFromTank(true);
-    setFillMode("coarse");
+    // Determine fill mode based on current weight
+    const fillPercentage = (tankWeight / tankTarget) * 100;
+    setFillMode(fillPercentage >= 90 ? "fine" : "coarse");
     setPumpStatus("running");
     setValveStatus("running");
     toast.success("Starter fylling fra tank");
@@ -107,7 +109,9 @@ const Index = () => {
 
   const startFillingFromSilo = () => {
     setIsFillingFromTank(false);
-    setFillMode("coarse");
+    // Determine fill mode based on current weight
+    const fillPercentage = (siloWeight / siloTarget) * 100;
+    setFillMode(fillPercentage >= 90 ? "fine" : "coarse");
     setDamperStatus("running");
     toast.success("Starter fylling fra silo");
   };
