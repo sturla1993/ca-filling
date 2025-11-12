@@ -6,18 +6,20 @@ interface IBCVisualizationProps {
   targetWeight: number;
   maxCapacity: number;
   tankWeight: number;
-  tankTarget: number;
+  siloWeight: number;
 }
 
-export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tankWeight, tankTarget }: IBCVisualizationProps) => {
+export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tankWeight, siloWeight }: IBCVisualizationProps) => {
   const [fillPercentage, setFillPercentage] = useState(0);
   const [tankPercentage, setTankPercentage] = useState(0);
+  const [siloPercentage, setSiloPercentage] = useState(0);
   const targetPercentage = (targetWeight / maxCapacity) * 100;
 
   useEffect(() => {
     setFillPercentage((currentWeight / maxCapacity) * 100);
     setTankPercentage((tankWeight / maxCapacity) * 100);
-  }, [currentWeight, maxCapacity, tankWeight]);
+    setSiloPercentage((siloWeight / maxCapacity) * 100);
+  }, [currentWeight, maxCapacity, tankWeight, siloWeight]);
 
   return (
     <div className="flex flex-col items-center gap-2 p-2 bg-card rounded border border-border">
@@ -31,7 +33,7 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tan
           style={{ bottom: `${targetPercentage}%` }}
         />
         
-        {/* Tank fill level (blue) */}
+        {/* Tank fill level (blue) - always at bottom */}
         <div
           className="absolute bottom-0 w-full bg-tank-fill transition-all duration-500 ease-out"
           style={{ height: `${Math.min(tankPercentage, 100)}%` }}
@@ -39,7 +41,7 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tan
           <div className="absolute inset-0 bg-gradient-to-t from-tank-fill to-transparent opacity-50" />
         </div>
         
-        {/* Silo fill level (amber) */}
+        {/* Silo fill level (amber) - stacked on top of tank */}
         <div
           className={cn(
             "absolute w-full bg-amber-500 transition-all duration-500 ease-out",
@@ -47,7 +49,7 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tan
           )}
           style={{ 
             bottom: `${Math.min(tankPercentage, 100)}%`,
-            height: `${Math.max(0, Math.min(fillPercentage - tankPercentage, 100 - tankPercentage))}%` 
+            height: `${Math.min(siloPercentage, 100 - tankPercentage)}%` 
           }}
         >
           <div className="absolute inset-0 bg-gradient-to-t from-amber-500 to-transparent opacity-50" />

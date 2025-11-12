@@ -25,7 +25,6 @@ type EquipmentStatus = "running" | "stopped" | "idle";
 const Index = () => {
   // State management
   const [tankTemp, setTankTemp] = useState(22.5);
-  const [currentWeight, setCurrentWeight] = useState(0);
   const [tankTarget, setTankTarget] = useState(500);
   const [siloTarget, setSiloTarget] = useState(500);
   const [fillMode, setFillMode] = useState<FillMode>("idle");
@@ -34,11 +33,11 @@ const Index = () => {
   const [damperStatus, setDamperStatus] = useState<EquipmentStatus>("idle");
   const [vibratorStatus, setVibratorStatus] = useState<EquipmentStatus>("idle");
   const [isFillingFromTank, setIsFillingFromTank] = useState(false);
-  const [tankFilled, setTankFilled] = useState(false);
   const [tankWeight, setTankWeight] = useState(0);
+  const [siloWeight, setSiloWeight] = useState(0);
 
   const totalTarget = tankTarget + siloTarget;
-  const siloWeight = currentWeight - tankWeight;
+  const currentWeight = tankWeight + siloWeight;
 
   // Simulate temperature changes
   useEffect(() => {
@@ -53,55 +52,60 @@ const Index = () => {
     if (fillMode !== "idle") {
       const fillRate = fillMode === "coarse" ? 5 : 0.5; // kg per interval
       const interval = setInterval(() => {
-        setCurrentWeight(prev => {
-          const newWeight = prev + fillRate;
-          
-          // Determine target based on source
-          const currentTarget = isFillingFromTank ? tankTarget : (tankFilled ? tankTarget + siloTarget : siloTarget);
-          
-          // Auto switch from coarse to fine at 90% of target
-          if (fillMode === "coarse" && newWeight >= currentTarget * 0.9) {
-            setFillMode("fine");
-            toast.info("Bytter til finfylling");
-          }
-          
-          // Stop at target
-          if (newWeight >= currentTarget) {
-            if (isFillingFromTank) {
-              setTankFilled(true);
-              setTankWeight(currentTarget);
-              toast.success(`Fylling fra tank fullført! (${currentTarget.toFixed(1)} kg)`);
-            } else {
-              toast.success(`Fylling fra silo fullført! (${(newWeight - tankWeight).toFixed(1)} kg)`);
+        if (isFillingFromTank) {
+          setTankWeight(prev => {
+            const newWeight = prev + fillRate;
+            
+            // Auto switch from coarse to fine at 90% of target
+            if (fillMode === "coarse" && newWeight >= tankTarget * 0.9) {
+              setFillMode("fine");
+              toast.info("Bytter til finfylling");
             }
-            stopFilling();
-            return currentTarget;
-          }
-          
-          return newWeight;
-        });
+            
+            // Stop at target
+            if (newWeight >= tankTarget) {
+              toast.success(`Fylling fra tank fullført! (${tankTarget.toFixed(1)} kg)`);
+              stopFilling();
+              return tankTarget;
+            }
+            
+            return newWeight;
+          });
+        } else {
+          setSiloWeight(prev => {
+            const newWeight = prev + fillRate;
+            
+            // Auto switch from coarse to fine at 90% of target
+            if (fillMode === "coarse" && newWeight >= siloTarget * 0.9) {
+              setFillMode("fine");
+              toast.info("Bytter til finfylling");
+            }
+            
+            // Stop at target
+            if (newWeight >= siloTarget) {
+              toast.success(`Fylling fra silo fullført! (${siloTarget.toFixed(1)} kg)`);
+              stopFilling();
+              return siloTarget;
+            }
+            
+            return newWeight;
+          });
+        }
       }, 100);
       
       return () => clearInterval(interval);
     }
-  }, [fillMode, tankTarget, siloTarget, isFillingFromTank, tankFilled]);
+  }, [fillMode, tankTarget, siloTarget, isFillingFromTank]);
 
   const startFillingFromTank = () => {
     setIsFillingFromTank(true);
     setFillMode("coarse");
     setPumpStatus("running");
     setValveStatus("running");
-    if (!tankFilled) {
-      setCurrentWeight(0);
-    }
     toast.success("Starter fylling fra tank");
   };
 
   const startFillingFromSilo = () => {
-    if (!tankFilled) {
-      toast.error("Må fylle fra tank først!");
-      return;
-    }
     setIsFillingFromTank(false);
     setFillMode("coarse");
     setDamperStatus("running");
@@ -122,9 +126,8 @@ const Index = () => {
     setValveStatus("idle");
     setDamperStatus("idle");
     setVibratorStatus("idle");
-    setCurrentWeight(0);
     setTankWeight(0);
-    setTankFilled(false);
+    setSiloWeight(0);
     setIsFillingFromTank(false);
     toast.success("Nullstilt");
   };
@@ -279,7 +282,7 @@ const Index = () => {
             targetWeight={totalTarget}
             maxCapacity={totalTarget}
             tankWeight={tankWeight}
-            tankTarget={tankTarget}
+            siloWeight={siloWeight}
           />
           
           {/* Vibrator Control */}
