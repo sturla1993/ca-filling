@@ -56,7 +56,7 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tan
         </div>
         
         {/* Capacity markers */}
-        {[0, 25, 50, 75, 100].map((mark) => (
+        {[25, 50, 75].map((mark) => (
           <div
             key={mark}
             className="absolute w-full flex items-center"
