@@ -13,7 +13,8 @@ import {
   Thermometer,
   Play,
   Square,
-  AlertCircle
+  AlertCircle,
+  RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -111,6 +112,18 @@ const Index = () => {
     toast.info("Fylling stoppet");
   };
 
+  const resetFilling = () => {
+    setFillMode("idle");
+    setPumpStatus("idle");
+    setValveStatus("idle");
+    setDamperStatus("idle");
+    setVibratorStatus("idle");
+    setCurrentWeight(0);
+    setTankFilled(false);
+    setIsFillingFromTank(false);
+    toast.success("Nullstilt");
+  };
+
   const toggleVibrator = () => {
     if (vibratorStatus === "running") {
       setVibratorStatus("idle");
@@ -124,9 +137,7 @@ const Index = () => {
   const handleSettingsSave = (newTankTarget: number, newSiloTarget: number) => {
     setTankTarget(newTankTarget);
     setSiloTarget(newSiloTarget);
-    setTankFilled(false);
-    setCurrentWeight(0);
-    toast.success("Innstillinger lagret - Resetter fylling");
+    toast.success("Innstillinger lagret");
   };
 
   return (
@@ -200,7 +211,7 @@ const Index = () => {
               <Droplets className="w-4 h-4 text-primary" />
               Tank
             </h2>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <ControlButton
                 icon={Play}
                 label="Start"
@@ -209,20 +220,12 @@ const Index = () => {
                 disabled={fillMode !== "idle"}
               />
               <ControlButton
-                icon={Gauge}
-                label="Pumpe"
-                status={pumpStatus}
-                active={pumpStatus === "running"}
-                onClick={() => {}}
-                disabled
-              />
-              <ControlButton
-                icon={Droplets}
-                label="Ventil"
-                status={valveStatus}
-                active={valveStatus === "running"}
-                onClick={() => {}}
-                disabled
+                icon={Square}
+                label="Stopp"
+                status={isFillingFromTank && fillMode !== "idle" ? "stopped" : "idle"}
+                onClick={stopFilling}
+                disabled={fillMode === "idle" || !isFillingFromTank}
+                className="bg-destructive/20 border-destructive"
               />
             </div>
           </Card>
@@ -242,26 +245,37 @@ const Index = () => {
                 disabled={fillMode !== "idle"}
               />
               <ControlButton
-                icon={Wind}
-                label="Spjeld"
-                status={damperStatus}
-                active={damperStatus === "running"}
-                onClick={() => {}}
-                disabled
+                icon={Square}
+                label="Stopp"
+                status={!isFillingFromTank && fillMode !== "idle" ? "stopped" : "idle"}
+                onClick={stopFilling}
+                disabled={fillMode === "idle" || isFillingFromTank}
+                className="bg-destructive/20 border-destructive"
               />
             </div>
           </Card>
 
-          {/* Emergency Stop */}
-          <Card className="p-2 bg-destructive/20 border-destructive">
-            <ControlButton
-              icon={Square}
-              label="NØDSTOPP"
-              status={fillMode !== "idle" ? "stopped" : "idle"}
-              onClick={stopFilling}
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive"
-            />
-          </Card>
+          {/* Emergency Stop and Reset */}
+          <div className="grid grid-cols-2 gap-2">
+            <Card className="p-2 bg-destructive/20 border-destructive">
+              <ControlButton
+                icon={Square}
+                label="NØDSTOPP"
+                status={fillMode !== "idle" ? "stopped" : "idle"}
+                onClick={stopFilling}
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive"
+              />
+            </Card>
+            <Card className="p-2 bg-card border-border">
+              <ControlButton
+                icon={RefreshCw}
+                label="Nullstill"
+                status="idle"
+                onClick={resetFilling}
+                className="bg-secondary hover:bg-secondary/80"
+              />
+            </Card>
+          </div>
         </div>
 
         {/* Right Panel - IBC Visualization */}
