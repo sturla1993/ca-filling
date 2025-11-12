@@ -233,7 +233,7 @@ const Index = () => {
               <Wind className="w-4 h-4 text-primary" />
               Silo
             </h2>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <ControlButton
                 icon={Play}
                 label="Start"
@@ -248,14 +248,6 @@ const Index = () => {
                 active={damperStatus === "running"}
                 onClick={() => {}}
                 disabled
-              />
-              <ControlButton
-                icon={Zap}
-                label="Vibrator"
-                status={vibratorStatus}
-                active={vibratorStatus === "running"}
-                onClick={toggleVibrator}
-                disabled={fillMode === "idle"}
               />
             </div>
           </Card>
@@ -273,16 +265,29 @@ const Index = () => {
         </div>
 
         {/* Right Panel - IBC Visualization */}
-        <div className="col-span-1">
+        <div className="col-span-1 space-y-2">
           <IBCVisualization
             currentWeight={currentWeight}
             targetWeight={totalTarget}
             maxCapacity={totalTarget}
           />
           
+          {/* Vibrator Control */}
+          <Card className="p-2 bg-card border-border">
+            <ControlButton
+              icon={Zap}
+              label={vibratorStatus === "running" ? "Stopp vibrator" : "Start vibrator"}
+              status={vibratorStatus}
+              active={vibratorStatus === "running"}
+              onClick={toggleVibrator}
+              disabled={fillMode === "idle"}
+              className={vibratorStatus === "running" ? "border-status-running" : ""}
+            />
+          </Card>
+          
           {/* Warnings */}
           {tankTemp > 30 && (
-            <Card className="p-2 bg-status-warning/20 border-status-warning mt-2">
+            <Card className="p-2 bg-status-warning/20 border-status-warning">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-status-warning" />
                 <div className="text-xs text-foreground font-semibold">Temp advarsel</div>
