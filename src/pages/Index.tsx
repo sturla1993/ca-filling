@@ -8,13 +8,13 @@ import { Separator } from "@/components/ui/separator";
 import { 
   Droplets, 
   Gauge, 
-  Wind, 
   Zap, 
   Thermometer,
   Play,
   Square,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Package
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -233,7 +233,7 @@ const Index = () => {
           {/* Silo Controls */}
           <Card className="p-2 bg-card border-border">
             <h2 className="text-sm font-semibold mb-2 text-foreground flex items-center gap-1.5">
-              <Wind className="w-4 h-4 text-primary" />
+              <Package className="w-4 h-4 text-primary" />
               Silo
             </h2>
             <div className="grid grid-cols-2 gap-2">
@@ -255,27 +255,16 @@ const Index = () => {
             </div>
           </Card>
 
-          {/* Emergency Stop and Reset */}
-          <div className="grid grid-cols-2 gap-2">
-            <Card className="p-2 bg-destructive/20 border-destructive">
-              <ControlButton
-                icon={Square}
-                label="NØDSTOPP"
-                status={fillMode !== "idle" ? "stopped" : "idle"}
-                onClick={stopFilling}
-                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive"
-              />
-            </Card>
-            <Card className="p-2 bg-card border-border">
-              <ControlButton
-                icon={RefreshCw}
-                label="Nullstill"
-                status="idle"
-                onClick={resetFilling}
-                className="bg-secondary hover:bg-secondary/80"
-              />
-            </Card>
-          </div>
+          {/* Emergency Stop */}
+          <Card className="p-2 bg-destructive/20 border-destructive">
+            <ControlButton
+              icon={Square}
+              label="NØDSTOPP"
+              status={fillMode !== "idle" ? "stopped" : "idle"}
+              onClick={stopFilling}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive"
+            />
+          </Card>
         </div>
 
         {/* Right Panel - IBC Visualization */}
@@ -295,6 +284,17 @@ const Index = () => {
               active={vibratorStatus === "running"}
               onClick={toggleVibrator}
               className={vibratorStatus === "running" ? "border-status-running" : ""}
+            />
+          </Card>
+          
+          {/* Reset Button */}
+          <Card className="p-2 bg-card border-border">
+            <ControlButton
+              icon={RefreshCw}
+              label="Nullstill"
+              status="idle"
+              onClick={resetFilling}
+              className="bg-secondary hover:bg-secondary/80"
             />
           </Card>
           
