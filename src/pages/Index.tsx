@@ -17,6 +17,7 @@ import {
   Package
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 type FillMode = "idle" | "coarse" | "fine";
 type EquipmentStatus = "running" | "stopped" | "idle";
@@ -34,8 +35,10 @@ const Index = () => {
   const [vibratorStatus, setVibratorStatus] = useState<EquipmentStatus>("idle");
   const [isFillingFromTank, setIsFillingFromTank] = useState(false);
   const [tankFilled, setTankFilled] = useState(false);
+  const [tankWeight, setTankWeight] = useState(0);
 
   const totalTarget = tankTarget + siloTarget;
+  const siloWeight = currentWeight - tankWeight;
 
   // Simulate temperature changes
   useEffect(() => {
@@ -66,9 +69,10 @@ const Index = () => {
           if (newWeight >= currentTarget) {
             if (isFillingFromTank) {
               setTankFilled(true);
+              setTankWeight(currentTarget);
               toast.success(`Fylling fra tank fullført! (${currentTarget.toFixed(1)} kg)`);
             } else {
-              toast.success(`Fylling fra silo fullført! (${(newWeight - (tankFilled ? tankTarget : 0)).toFixed(1)} kg)`);
+              toast.success(`Fylling fra silo fullført! (${(newWeight - tankWeight).toFixed(1)} kg)`);
             }
             stopFilling();
             return currentTarget;
@@ -119,6 +123,7 @@ const Index = () => {
     setDamperStatus("idle");
     setVibratorStatus("idle");
     setCurrentWeight(0);
+    setTankWeight(0);
     setTankFilled(false);
     setIsFillingFromTank(false);
     toast.success("Nullstilt");
@@ -273,6 +278,8 @@ const Index = () => {
             currentWeight={currentWeight}
             targetWeight={totalTarget}
             maxCapacity={totalTarget}
+            tankWeight={tankWeight}
+            tankTarget={tankTarget}
           />
           
           {/* Vibrator Control */}
@@ -283,7 +290,7 @@ const Index = () => {
               status={vibratorStatus}
               active={vibratorStatus === "running"}
               onClick={toggleVibrator}
-              className={vibratorStatus === "running" ? "border-status-running" : ""}
+              className={cn("h-16", vibratorStatus === "running" ? "border-status-running" : "")}
             />
           </Card>
           
@@ -294,7 +301,7 @@ const Index = () => {
               label="Nullstill"
               status="idle"
               onClick={resetFilling}
-              className="bg-secondary hover:bg-secondary/80"
+              className="bg-secondary hover:bg-secondary/80 h-16"
             />
           </Card>
           
