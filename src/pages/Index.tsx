@@ -14,7 +14,7 @@ import {
   Square,
   AlertCircle,
   RefreshCw,
-  Container
+  Package
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,8 +34,6 @@ const Index = () => {
   const [vibratorStatus, setVibratorStatus] = useState<EquipmentStatus>("idle");
   const [isFillingFromTank, setIsFillingFromTank] = useState(false);
   const [tankFilled, setTankFilled] = useState(false);
-  const [tankWeight, setTankWeight] = useState(0);
-  const [siloWeight, setSiloWeight] = useState(0);
 
   const totalTarget = tankTarget + siloTarget;
 
@@ -56,7 +54,7 @@ const Index = () => {
           const newWeight = prev + fillRate;
           
           // Determine target based on source
-          const currentTarget = isFillingFromTank ? tankTarget : totalTarget;
+          const currentTarget = isFillingFromTank ? tankTarget : (tankFilled ? tankTarget + siloTarget : siloTarget);
           
           // Auto switch from coarse to fine at 90% of target
           if (fillMode === "coarse" && newWeight >= currentTarget * 0.9) {
@@ -68,21 +66,12 @@ const Index = () => {
           if (newWeight >= currentTarget) {
             if (isFillingFromTank) {
               setTankFilled(true);
-              setTankWeight(currentTarget);
               toast.success(`Fylling fra tank fullført! (${currentTarget.toFixed(1)} kg)`);
             } else {
-              setSiloWeight(newWeight - tankWeight);
-              toast.success(`Fylling fra silo fullført! (${(newWeight - tankWeight).toFixed(1)} kg)`);
+              toast.success(`Fylling fra silo fullført! (${(newWeight - (tankFilled ? tankTarget : 0)).toFixed(1)} kg)`);
             }
             stopFilling();
             return currentTarget;
-          }
-          
-          // Update tank/silo weights during filling
-          if (isFillingFromTank) {
-            setTankWeight(newWeight);
-          } else {
-            setSiloWeight(newWeight - tankWeight);
           }
           
           return newWeight;
@@ -130,8 +119,6 @@ const Index = () => {
     setDamperStatus("idle");
     setVibratorStatus("idle");
     setCurrentWeight(0);
-    setTankWeight(0);
-    setSiloWeight(0);
     setTankFilled(false);
     setIsFillingFromTank(false);
     toast.success("Nullstilt");
@@ -173,87 +160,147 @@ const Index = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-2">
-        {/* Status Bar - full width */}
-        <Card className="col-span-4 p-2 bg-card border-border">
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <StatusIndicator
-              status={pumpStatus}
-              label={`Pumpe: ${pumpStatus === "running" ? "Kjører" : "Av"}`}
-            />
-            <StatusIndicator
-              status={valveStatus}
-              label={`Ventil: ${valveStatus === "running" ? "Åpen" : "Lukket"}`}
-            />
-            <StatusIndicator
-              status={damperStatus}
-              label={`Spjeld: ${damperStatus === "running" ? "Åpen" : "Lukket"}`}
-            />
-            <StatusIndicator
-              status={vibratorStatus}
-              label={`Vibrator: ${vibratorStatus === "running" ? "På" : "Av"}`}
-            />
-          </div>
-        </Card>
+      <div className="grid grid-cols-3 gap-2">
+        {/* Left Panel - Controls */}
+        <div className="col-span-2 space-y-2">
+          {/* Status Bar */}
+          <Card className="p-2 bg-card border-border">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <StatusIndicator
+                status={pumpStatus}
+                label={`Pumpe: ${pumpStatus === "running" ? "Kjører" : "Av"}`}
+              />
+              <StatusIndicator
+                status={valveStatus}
+                label={`Ventil: ${valveStatus === "running" ? "Åpen" : "Lukket"}`}
+              />
+              <StatusIndicator
+                status={damperStatus}
+                label={`Spjeld: ${damperStatus === "running" ? "Åpen" : "Lukket"}`}
+              />
+              <StatusIndicator
+                status={vibratorStatus}
+                label={`Vibrator: ${vibratorStatus === "running" ? "På" : "Av"}`}
+              />
+            </div>
+          </Card>
 
-        {/* Fill Mode Indicator - full width */}
-        <Card className="col-span-4 p-2 bg-card border-border">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-semibold text-foreground">Modus:</span>
-            {fillMode !== "idle" && (
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/20 rounded border border-primary">
-                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                <span className="font-semibold text-foreground text-xs uppercase">
-                  {fillMode === "coarse" ? "Grovfylling" : "Finfylling"}
-                </span>
-              </div>
-            )}
-            {fillMode === "idle" && (
-              <div className="px-2 py-1 bg-muted rounded">
-                <span className="text-muted-foreground text-xs">Inaktiv</span>
-              </div>
-            )}
-          </div>
-        </Card>
+          {/* Fill Mode Indicator */}
+          <Card className="p-2 bg-card border-border">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold text-foreground">Modus:</span>
+              {fillMode !== "idle" && (
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/20 rounded border border-primary">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <span className="font-semibold text-foreground text-xs uppercase">
+                    {fillMode === "coarse" ? "Grovfylling" : "Finfylling"}
+                  </span>
+                </div>
+              )}
+              {fillMode === "idle" && (
+                <div className="px-2 py-1 bg-muted rounded">
+                  <span className="text-muted-foreground text-xs">Inaktiv</span>
+                </div>
+              )}
+            </div>
+          </Card>
 
-        {/* Tank Controls */}
-        <Card className="col-span-2 p-2 bg-card border-border">
-          <h2 className="text-sm font-semibold mb-2 text-foreground flex items-center gap-1.5">
-            <Droplets className="w-4 h-4 text-primary" />
-            Tank
-          </h2>
-          <div className="grid grid-cols-2 gap-2">
-            <ControlButton
-              icon={Play}
-              label="Start"
-              status={isFillingFromTank && fillMode !== "idle" ? "running" : "idle"}
-              onClick={startFillingFromTank}
-              disabled={fillMode !== "idle"}
-            />
+          {/* Tank Controls */}
+          <Card className="p-2 bg-card border-border">
+            <h2 className="text-sm font-semibold mb-2 text-foreground flex items-center gap-1.5">
+              <Droplets className="w-4 h-4 text-primary" />
+              Tank
+            </h2>
+            <div className="grid grid-cols-2 gap-2">
+              <ControlButton
+                icon={Play}
+                label="Start"
+                status={isFillingFromTank && fillMode !== "idle" ? "running" : "idle"}
+                onClick={startFillingFromTank}
+                disabled={fillMode !== "idle"}
+              />
+              <ControlButton
+                icon={Square}
+                label="Stopp"
+                status={isFillingFromTank && fillMode !== "idle" ? "stopped" : "idle"}
+                onClick={stopFilling}
+                disabled={fillMode === "idle" || !isFillingFromTank}
+                className="bg-destructive/20 border-destructive"
+              />
+            </div>
+          </Card>
+
+          {/* Silo Controls */}
+          <Card className="p-2 bg-card border-border">
+            <h2 className="text-sm font-semibold mb-2 text-foreground flex items-center gap-1.5">
+              <Package className="w-4 h-4 text-primary" />
+              Silo
+            </h2>
+            <div className="grid grid-cols-2 gap-2">
+              <ControlButton
+                icon={Play}
+                label="Start"
+                status={!isFillingFromTank && fillMode !== "idle" ? "running" : "idle"}
+                onClick={startFillingFromSilo}
+                disabled={fillMode !== "idle"}
+              />
+              <ControlButton
+                icon={Square}
+                label="Stopp"
+                status={!isFillingFromTank && fillMode !== "idle" ? "stopped" : "idle"}
+                onClick={stopFilling}
+                disabled={fillMode === "idle" || isFillingFromTank}
+                className="bg-destructive/20 border-destructive"
+              />
+            </div>
+          </Card>
+
+          {/* Emergency Stop */}
+          <Card className="p-2 bg-destructive/20 border-destructive">
             <ControlButton
               icon={Square}
-              label="Stopp"
-              status={isFillingFromTank && fillMode !== "idle" ? "stopped" : "idle"}
+              label="NØDSTOPP"
+              status={fillMode !== "idle" ? "stopped" : "idle"}
               onClick={stopFilling}
-              disabled={fillMode === "idle" || !isFillingFromTank}
-              className="bg-destructive/20 border-destructive"
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive"
             />
-          </div>
-        </Card>
+          </Card>
+        </div>
 
-        {/* IBC Visualization - spans 3 rows on right */}
-        <div className="col-span-2 row-span-3">
+        {/* Right Panel - IBC Visualization */}
+        <div className="col-span-1 space-y-2">
           <IBCVisualization
             currentWeight={currentWeight}
             targetWeight={totalTarget}
             maxCapacity={totalTarget}
-            tankWeight={tankWeight}
-            siloWeight={siloWeight}
           />
+          
+          {/* Vibrator Control */}
+          <Card className="p-2 bg-card border-border">
+            <ControlButton
+              icon={Zap}
+              label={vibratorStatus === "running" ? "Stopp vibrator" : "Start vibrator"}
+              status={vibratorStatus}
+              active={vibratorStatus === "running"}
+              onClick={toggleVibrator}
+              className={vibratorStatus === "running" ? "border-status-running" : ""}
+            />
+          </Card>
+          
+          {/* Reset Button */}
+          <Card className="p-2 bg-card border-border">
+            <ControlButton
+              icon={RefreshCw}
+              label="Nullstill"
+              status="idle"
+              onClick={resetFilling}
+              className="bg-secondary hover:bg-secondary/80"
+            />
+          </Card>
           
           {/* Warnings */}
           {tankTemp > 30 && (
-            <Card className="mt-2 p-2 bg-status-warning/20 border-status-warning">
+            <Card className="p-2 bg-status-warning/20 border-status-warning">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-status-warning" />
                 <div className="text-xs text-foreground font-semibold">Temp advarsel</div>
@@ -261,65 +308,6 @@ const Index = () => {
             </Card>
           )}
         </div>
-
-        {/* Silo Controls */}
-        <Card className="col-span-1 p-2 bg-card border-border">
-          <h2 className="text-sm font-semibold mb-2 text-foreground flex items-center gap-1.5">
-            <Container className="w-4 h-4 text-primary" />
-            Silo
-          </h2>
-          <div className="grid grid-cols-2 gap-2">
-            <ControlButton
-              icon={Play}
-              label="Start"
-              status={!isFillingFromTank && fillMode !== "idle" ? "running" : "idle"}
-              onClick={startFillingFromSilo}
-              disabled={fillMode !== "idle"}
-            />
-            <ControlButton
-              icon={Square}
-              label="Stopp"
-              status={!isFillingFromTank && fillMode !== "idle" ? "stopped" : "idle"}
-              onClick={stopFilling}
-              disabled={fillMode === "idle" || isFillingFromTank}
-              className="bg-destructive/20 border-destructive"
-            />
-          </div>
-        </Card>
-
-        {/* Vibrator Control */}
-        <Card className="col-span-1 p-2 bg-card border-border">
-          <ControlButton
-            icon={Zap}
-            label={vibratorStatus === "running" ? "Stopp vibrator" : "Start vibrator"}
-            status={vibratorStatus}
-            active={vibratorStatus === "running"}
-            onClick={toggleVibrator}
-            className={vibratorStatus === "running" ? "border-status-running" : ""}
-          />
-        </Card>
-
-        {/* Emergency Stop */}
-        <Card className="col-span-1 p-2 bg-destructive/20 border-destructive">
-          <ControlButton
-            icon={Square}
-            label="NØDSTOPP"
-            status={fillMode !== "idle" ? "stopped" : "idle"}
-            onClick={stopFilling}
-            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive"
-          />
-        </Card>
-
-        {/* Reset Button */}
-        <Card className="col-span-1 p-2 bg-card border-border">
-          <ControlButton
-            icon={RefreshCw}
-            label="Nullstill"
-            status="idle"
-            onClick={resetFilling}
-            className="bg-secondary hover:bg-secondary/80"
-          />
-        </Card>
       </div>
     </div>
   );
