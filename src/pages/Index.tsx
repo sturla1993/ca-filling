@@ -32,8 +32,8 @@ const Index = () => {
   const [damperStatus, setDamperStatus] = useState<EquipmentStatus>("idle");
   const [vibratorStatus, setVibratorStatus] = useState<EquipmentStatus>("idle");
   const [isFillingFromTank, setIsFillingFromTank] = useState(false);
+  const [tankFilled, setTankFilled] = useState(false);
 
-  const totalTarget = tankTarget + siloTarget;
   const maxCapacity = 1000;
 
   // Simulate temperature changes
@@ -52,17 +52,25 @@ const Index = () => {
         setCurrentWeight(prev => {
           const newWeight = prev + fillRate;
           
+          // Determine target based on source
+          const currentTarget = isFillingFromTank ? tankTarget : (tankFilled ? tankTarget + siloTarget : siloTarget);
+          
           // Auto switch from coarse to fine at 90% of target
-          if (fillMode === "coarse" && newWeight >= totalTarget * 0.9) {
+          if (fillMode === "coarse" && newWeight >= currentTarget * 0.9) {
             setFillMode("fine");
             toast.info("Bytter til finfylling");
           }
           
           // Stop at target
-          if (newWeight >= totalTarget) {
+          if (newWeight >= currentTarget) {
+            if (isFillingFromTank) {
+              setTankFilled(true);
+              toast.success(`Fylling fra tank fullført! (${currentTarget.toFixed(1)} kg)`);
+            } else {
+              toast.success(`Fylling fra silo fullført! (${(newWeight - (tankFilled ? tankTarget : 0)).toFixed(1)} kg)`);
+            }
             stopFilling();
-            toast.success("Fylling fullført!");
-            return totalTarget;
+            return currentTarget;
           }
           
           return newWeight;
@@ -71,22 +79,27 @@ const Index = () => {
       
       return () => clearInterval(interval);
     }
-  }, [fillMode, totalTarget]);
+  }, [fillMode, tankTarget, siloTarget, isFillingFromTank, tankFilled]);
 
   const startFillingFromTank = () => {
     setIsFillingFromTank(true);
     setFillMode("coarse");
     setPumpStatus("running");
     setValveStatus("running");
-    setCurrentWeight(0);
+    if (!tankFilled) {
+      setCurrentWeight(0);
+    }
     toast.success("Starter fylling fra tank");
   };
 
   const startFillingFromSilo = () => {
+    if (!tankFilled) {
+      toast.error("Må fylle fra tank først!");
+      return;
+    }
     setIsFillingFromTank(false);
     setFillMode("coarse");
     setDamperStatus("running");
-    setCurrentWeight(0);
     toast.success("Starter fylling fra silo");
   };
 
@@ -111,7 +124,9 @@ const Index = () => {
   const handleSettingsSave = (newTankTarget: number, newSiloTarget: number) => {
     setTankTarget(newTankTarget);
     setSiloTarget(newSiloTarget);
-    toast.success("Innstillinger lagret");
+    setTankFilled(false);
+    setCurrentWeight(0);
+    toast.success("Innstillinger lagret - Resetter fylling");
   };
 
   return (
@@ -261,7 +276,7 @@ const Index = () => {
         <div className="col-span-1">
           <IBCVisualization
             currentWeight={currentWeight}
-            targetWeight={totalTarget}
+            targetWeight={tankFilled ? tankTarget + siloTarget : (isFillingFromTank ? tankTarget : siloTarget)}
             maxCapacity={maxCapacity}
           />
           
