@@ -27,6 +27,8 @@ const Index = () => {
   const [tankTemp, setTankTemp] = useState(22.5);
   const [tankTarget, setTankTarget] = useState(500);
   const [siloTarget, setSiloTarget] = useState(500);
+  const [tankOverrun, setTankOverrun] = useState(5);
+  const [siloOverrun, setSiloOverrun] = useState(5);
   const [fillMode, setFillMode] = useState<FillMode>("idle");
   const [pumpStatus, setPumpStatus] = useState<EquipmentStatus>("idle");
   const [valveStatus, setValveStatus] = useState<EquipmentStatus>("idle");
@@ -62,11 +64,11 @@ const Index = () => {
               toast.info("Bytter til finfylling");
             }
             
-            // Stop at target
-            if (newWeight >= tankTarget) {
-              toast.success(`Fylling fra tank fullført! (${tankTarget.toFixed(1)} kg)`);
+            // Stop at target minus overrun compensation
+            if (newWeight >= (tankTarget - tankOverrun)) {
+              toast.success(`Fylling fra tank fullført! Vekt: ${newWeight.toFixed(1)} kg`);
               stopFilling();
-              return tankTarget;
+              return newWeight;
             }
             
             return newWeight;
@@ -81,11 +83,11 @@ const Index = () => {
               toast.info("Bytter til finfylling");
             }
             
-            // Stop at target
-            if (newWeight >= siloTarget) {
-              toast.success(`Fylling fra silo fullført! (${siloTarget.toFixed(1)} kg)`);
+            // Stop at target minus overrun compensation
+            if (newWeight >= (siloTarget - siloOverrun)) {
+              toast.success(`Fylling fra silo fullført! Vekt: ${newWeight.toFixed(1)} kg`);
               stopFilling();
-              return siloTarget;
+              return newWeight;
             }
             
             return newWeight;
@@ -146,9 +148,16 @@ const Index = () => {
     }
   };
 
-  const handleSettingsSave = (newTankTarget: number, newSiloTarget: number) => {
+  const handleSettingsSave = (
+    newTankTarget: number, 
+    newSiloTarget: number,
+    newTankOverrun: number,
+    newSiloOverrun: number
+  ) => {
     setTankTarget(newTankTarget);
     setSiloTarget(newSiloTarget);
+    setTankOverrun(newTankOverrun);
+    setSiloOverrun(newSiloOverrun);
     toast.success("Innstillinger lagret");
   };
 
@@ -167,6 +176,8 @@ const Index = () => {
           <SettingsDialog
             tankTarget={tankTarget}
             siloTarget={siloTarget}
+            tankOverrun={tankOverrun}
+            siloOverrun={siloOverrun}
             onSave={handleSettingsSave}
           />
         </div>

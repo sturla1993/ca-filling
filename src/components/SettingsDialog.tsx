@@ -8,16 +8,20 @@ import { Settings } from "lucide-react";
 interface SettingsDialogProps {
   tankTarget: number;
   siloTarget: number;
-  onSave: (tankTarget: number, siloTarget: number) => void;
+  tankOverrun: number;
+  siloOverrun: number;
+  onSave: (tankTarget: number, siloTarget: number, tankOverrun: number, siloOverrun: number) => void;
 }
 
-export const SettingsDialog = ({ tankTarget, siloTarget, onSave }: SettingsDialogProps) => {
+export const SettingsDialog = ({ tankTarget, siloTarget, tankOverrun, siloOverrun, onSave }: SettingsDialogProps) => {
   const [tempTankTarget, setTempTankTarget] = useState(tankTarget);
   const [tempSiloTarget, setTempSiloTarget] = useState(siloTarget);
+  const [tempTankOverrun, setTempTankOverrun] = useState(tankOverrun);
+  const [tempSiloOverrun, setTempSiloOverrun] = useState(siloOverrun);
   const [open, setOpen] = useState(false);
 
   const handleSave = () => {
-    onSave(tempTankTarget, tempSiloTarget);
+    onSave(tempTankTarget, tempSiloTarget, tempTankOverrun, tempSiloOverrun);
     setOpen(false);
   };
 
@@ -56,6 +60,40 @@ export const SettingsDialog = ({ tankTarget, siloTarget, onSave }: SettingsDialo
               type="number"
               value={tempSiloTarget}
               onChange={(e) => setTempSiloTarget(Number(e.target.value))}
+              className="font-mono text-lg bg-input border-border text-foreground"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="tank-overrun" className="text-foreground">
+              Etterrenning tank (kg)
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Kompensasjon for materiale som renner etter stopp
+            </p>
+            <Input
+              id="tank-overrun"
+              type="number"
+              min="0"
+              value={tempTankOverrun}
+              onChange={(e) => setTempTankOverrun(Number(e.target.value))}
+              className="font-mono text-lg bg-input border-border text-foreground"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="silo-overrun" className="text-foreground">
+              Etterrenning silo (kg)
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              Kompensasjon for materiale som renner etter stopp
+            </p>
+            <Input
+              id="silo-overrun"
+              type="number"
+              min="0"
+              value={tempSiloOverrun}
+              onChange={(e) => setTempSiloOverrun(Number(e.target.value))}
               className="font-mono text-lg bg-input border-border text-foreground"
             />
           </div>
