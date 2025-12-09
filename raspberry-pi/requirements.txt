@@ -1,0 +1,8 @@
+# IBC Fyllesystem - Python dependencies
+flask==3.0.0
+flask-socketio==5.3.6
+flask-cors==4.0.0
+python-socketio==5.10.0
+eventlet==0.33.3
+smbus2==0.4.3
+RPi.GPIO==0.7.1
