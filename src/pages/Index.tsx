@@ -1,25 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { StatusIndicator } from "@/components/StatusIndicator";
 import { IBCVisualization } from "@/components/IBCVisualization";
 import { ControlButton } from "@/components/ControlButton";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { 
   Droplets, 
-  Gauge, 
   Thermometer,
   Play,
   Square,
   AlertCircle,
   RefreshCw,
-  Package
+  Package,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { usePiConnection, SensorData } from "@/hooks/usePiConnection";
 
 type FillMode = "idle" | "coarse" | "fine";
 type EquipmentStatus = "running" | "stopped" | "idle";
+
+// Pi-adresse - endre denne til Pi-ens IP når du kobler til
+const PI_URL = import.meta.env.VITE_PI_URL || "http://raspberrypi.local:5000";
 
 const Index = () => {
   // State management
@@ -32,41 +35,81 @@ const Index = () => {
   const [pumpStatus, setPumpStatus] = useState<EquipmentStatus>("idle");
   const [valveStatus, setValveStatus] = useState<EquipmentStatus>("idle");
   const [damperStatus, setDamperStatus] = useState<EquipmentStatus>("idle");
-  
   const [isFillingFromTank, setIsFillingFromTank] = useState(false);
   const [tankWeight, setTankWeight] = useState(0);
   const [siloWeight, setSiloWeight] = useState(0);
+  const [useSimulation, setUseSimulation] = useState(true);
+
+  // Pi-tilkobling
+  const handleSensorData = useCallback((data: SensorData) => {
+    if (!useSimulation) {
+      setTankTemp(data.temperature);
+      setPumpStatus(data.relays.pump ? "running" : "idle");
+      setValveStatus(data.relays.valve ? "running" : "idle");
+      setDamperStatus(data.relays.damper ? "running" : "idle");
+      setFillMode(data.state.fill_mode);
+      
+      // Fordel vekt basert på kilde
+      if (data.state.fill_source === 'tank') {
+        setTankWeight(data.weight);
+      } else if (data.state.fill_source === 'silo') {
+        setSiloWeight(data.weight);
+      }
+    }
+  }, [useSimulation]);
+
+  const handleConnectionChange = useCallback((connected: boolean) => {
+    if (connected) {
+      setUseSimulation(false);
+    } else {
+      setUseSimulation(true);
+    }
+  }, []);
+
+  const {
+    isConnected,
+    isOnPi,
+    startFill,
+    stopFill,
+    reset,
+    updateSettings,
+    emergencyStop
+  } = usePiConnection({
+    piUrl: PI_URL,
+    onSensorData: handleSensorData,
+    onConnectionChange: handleConnectionChange
+  });
 
   const totalTarget = tankTarget + siloTarget;
   const currentWeight = tankWeight + siloWeight;
 
-  // Simulate temperature changes
+  // Simulering av temperatur (kun når ikke koblet til Pi)
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTankTemp(prev => prev + (Math.random() - 0.5) * 0.2);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
+    if (useSimulation) {
+      const interval = setInterval(() => {
+        setTankTemp(prev => prev + (Math.random() - 0.5) * 0.2);
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [useSimulation]);
 
-  // Simulate filling process
+  // Simulering av fylleprosess (kun når ikke koblet til Pi)
   useEffect(() => {
-    if (fillMode !== "idle") {
-      const fillRate = fillMode === "coarse" ? 5 : 0.5; // kg per interval
+    if (useSimulation && fillMode !== "idle") {
+      const fillRate = fillMode === "coarse" ? 5 : 0.5;
       const interval = setInterval(() => {
         if (isFillingFromTank) {
           setTankWeight(prev => {
             const newWeight = prev + fillRate;
             
-            // Auto switch from coarse to fine at 90% of target
             if (fillMode === "coarse" && newWeight >= tankTarget * 0.9) {
               setFillMode("fine");
               toast.info("Bytter til finfylling");
             }
             
-            // Stop at target minus overrun compensation
             if (newWeight >= (tankTarget - tankOverrun)) {
               toast.success(`Fylling fra tank fullført! Vekt: ${newWeight.toFixed(1)} kg`);
-              stopFilling();
+              stopFillingLocal();
               return newWeight;
             }
             
@@ -76,16 +119,14 @@ const Index = () => {
           setSiloWeight(prev => {
             const newWeight = prev + fillRate;
             
-            // Auto switch from coarse to fine at 90% of target
             if (fillMode === "coarse" && newWeight >= siloTarget * 0.9) {
               setFillMode("fine");
               toast.info("Bytter til finfylling");
             }
             
-            // Stop at target minus overrun compensation
             if (newWeight >= (siloTarget - siloOverrun)) {
               toast.success(`Fylling fra silo fullført! Vekt: ${newWeight.toFixed(1)} kg`);
-              stopFilling();
+              stopFillingLocal();
               return newWeight;
             }
             
@@ -96,46 +137,68 @@ const Index = () => {
       
       return () => clearInterval(interval);
     }
-  }, [fillMode, tankTarget, siloTarget, isFillingFromTank]);
+  }, [useSimulation, fillMode, tankTarget, siloTarget, tankOverrun, siloOverrun, isFillingFromTank]);
 
   const startFillingFromTank = () => {
-    setIsFillingFromTank(true);
-    // Determine fill mode based on current weight
-    const fillPercentage = (tankWeight / tankTarget) * 100;
-    setFillMode(fillPercentage >= 90 ? "fine" : "coarse");
-    setPumpStatus("running");
-    setValveStatus("running");
-    toast.success("Starter fylling fra tank");
+    if (isConnected) {
+      startFill('tank');
+    } else {
+      setIsFillingFromTank(true);
+      const fillPercentage = (tankWeight / tankTarget) * 100;
+      setFillMode(fillPercentage >= 90 ? "fine" : "coarse");
+      setPumpStatus("running");
+      setValveStatus("running");
+      toast.success("Starter fylling fra tank");
+    }
   };
 
   const startFillingFromSilo = () => {
-    setIsFillingFromTank(false);
-    // Determine fill mode based on current weight
-    const fillPercentage = (siloWeight / siloTarget) * 100;
-    setFillMode(fillPercentage >= 90 ? "fine" : "coarse");
-    setDamperStatus("running");
-    toast.success("Starter fylling fra silo");
+    if (isConnected) {
+      startFill('silo');
+    } else {
+      setIsFillingFromTank(false);
+      const fillPercentage = (siloWeight / siloTarget) * 100;
+      setFillMode(fillPercentage >= 90 ? "fine" : "coarse");
+      setDamperStatus("running");
+      toast.success("Starter fylling fra silo");
+    }
   };
 
-  const stopFilling = () => {
+  const stopFillingLocal = () => {
     setFillMode("idle");
     setPumpStatus("idle");
     setValveStatus("idle");
     setDamperStatus("idle");
-    toast.info("Fylling stoppet");
+  };
+
+  const handleStopFilling = () => {
+    if (isConnected) {
+      stopFill();
+    } else {
+      stopFillingLocal();
+      toast.info("Fylling stoppet");
+    }
+  };
+
+  const handleEmergencyStop = () => {
+    if (isConnected) {
+      emergencyStop();
+    }
+    stopFillingLocal();
+    toast.error("NØDSTOPP AKTIVERT", { duration: 5000 });
   };
 
   const resetFilling = () => {
-    setFillMode("idle");
-    setPumpStatus("idle");
-    setValveStatus("idle");
-    setDamperStatus("idle");
-    setTankWeight(0);
-    setSiloWeight(0);
-    setIsFillingFromTank(false);
-    toast.success("Nullstilt");
+    if (isConnected) {
+      reset();
+    } else {
+      stopFillingLocal();
+      setTankWeight(0);
+      setSiloWeight(0);
+      setIsFillingFromTank(false);
+      toast.success("Nullstilt");
+    }
   };
-
 
   const handleSettingsSave = (
     newTankTarget: number, 
@@ -147,14 +210,44 @@ const Index = () => {
     setSiloTarget(newSiloTarget);
     setTankOverrun(newTankOverrun);
     setSiloOverrun(newSiloOverrun);
+    
+    if (isConnected) {
+      updateSettings({
+        tank_target: newTankTarget,
+        silo_target: newSiloTarget,
+        tank_overrun: newTankOverrun,
+        silo_overrun: newSiloOverrun
+      });
+    }
+    
     toast.success("Innstillinger lagret");
   };
 
   return (
     <div className="min-h-screen bg-background p-2">
-      {/* Compact Header */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-xl font-bold text-foreground">IBC Fyllesystem</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold text-foreground">IBC Fyllesystem</h1>
+          {/* Tilkoblingsstatus */}
+          <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
+            isConnected 
+              ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
+              : 'bg-muted text-muted-foreground'
+          }`}>
+            {isConnected ? (
+              <>
+                <Wifi className="w-3 h-3" />
+                <span>{isOnPi ? 'Pi' : 'Sim'}</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="w-3 h-3" />
+                <span>Offline</span>
+              </>
+            )}
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5">
             <Thermometer className="w-4 h-4 text-primary" />
@@ -177,7 +270,7 @@ const Index = () => {
         <div className="col-span-2 space-y-2">
           {/* Status Bar */}
           <Card className="p-2 bg-card border-border">
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-3 gap-2 text-xs">
               <StatusIndicator
                 status={pumpStatus}
                 label={`Pumpe: ${pumpStatus === "running" ? "Kjører" : "Av"}`}
@@ -231,7 +324,7 @@ const Index = () => {
                 icon={Square}
                 label="Stopp"
                 status={isFillingFromTank && fillMode !== "idle" ? "stopped" : "idle"}
-                onClick={stopFilling}
+                onClick={handleStopFilling}
                 disabled={fillMode === "idle" || !isFillingFromTank}
                 className="bg-destructive/20 border-destructive"
               />
@@ -256,7 +349,7 @@ const Index = () => {
                 icon={Square}
                 label="Stopp"
                 status={!isFillingFromTank && fillMode !== "idle" ? "stopped" : "idle"}
-                onClick={stopFilling}
+                onClick={handleStopFilling}
                 disabled={fillMode === "idle" || isFillingFromTank}
                 className="bg-destructive/20 border-destructive"
               />
@@ -269,7 +362,7 @@ const Index = () => {
               icon={Square}
               label="NØDSTOPP"
               status={fillMode !== "idle" ? "stopped" : "idle"}
-              onClick={stopFilling}
+              onClick={handleEmergencyStop}
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive"
             />
           </Card>
