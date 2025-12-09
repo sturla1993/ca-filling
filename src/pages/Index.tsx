@@ -292,7 +292,7 @@ const Index = () => {
               label="Nullstill"
               status="idle"
               onClick={resetFilling}
-              className="bg-secondary hover:bg-secondary/80 h-[72px]"
+              className="bg-secondary hover:bg-secondary/80 h-32"
             />
           </Card>
           
