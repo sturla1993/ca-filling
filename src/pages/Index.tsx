@@ -8,7 +8,6 @@ import { Separator } from "@/components/ui/separator";
 import { 
   Droplets, 
   Gauge, 
-  Zap, 
   Thermometer,
   Play,
   Square,
@@ -33,7 +32,7 @@ const Index = () => {
   const [pumpStatus, setPumpStatus] = useState<EquipmentStatus>("idle");
   const [valveStatus, setValveStatus] = useState<EquipmentStatus>("idle");
   const [damperStatus, setDamperStatus] = useState<EquipmentStatus>("idle");
-  const [vibratorStatus, setVibratorStatus] = useState<EquipmentStatus>("idle");
+  
   const [isFillingFromTank, setIsFillingFromTank] = useState(false);
   const [tankWeight, setTankWeight] = useState(0);
   const [siloWeight, setSiloWeight] = useState(0);
@@ -131,22 +130,12 @@ const Index = () => {
     setPumpStatus("idle");
     setValveStatus("idle");
     setDamperStatus("idle");
-    setVibratorStatus("idle");
     setTankWeight(0);
     setSiloWeight(0);
     setIsFillingFromTank(false);
     toast.success("Nullstilt");
   };
 
-  const toggleVibrator = () => {
-    if (vibratorStatus === "running") {
-      setVibratorStatus("idle");
-      toast.info("Vibrator stoppet");
-    } else {
-      setVibratorStatus("running");
-      toast.success("Vibrator startet");
-    }
-  };
 
   const handleSettingsSave = (
     newTankTarget: number, 
@@ -200,10 +189,6 @@ const Index = () => {
               <StatusIndicator
                 status={damperStatus}
                 label={`Spjeld: ${damperStatus === "running" ? "Åpen" : "Lukket"}`}
-              />
-              <StatusIndicator
-                status={vibratorStatus}
-                label={`Vibrator: ${vibratorStatus === "running" ? "På" : "Av"}`}
               />
             </div>
           </Card>
@@ -300,26 +285,14 @@ const Index = () => {
             siloWeight={siloWeight}
           />
           
-          {/* Vibrator Control */}
-          <Card className="p-2 bg-card border-border">
-            <ControlButton
-              icon={Zap}
-              label={vibratorStatus === "running" ? "Stopp vibrator" : "Start vibrator"}
-              status={vibratorStatus}
-              active={vibratorStatus === "running"}
-              onClick={toggleVibrator}
-              className={cn("h-16", vibratorStatus === "running" ? "border-status-running" : "")}
-            />
-          </Card>
-          
-          {/* Reset Button */}
+          {/* Reset Button - Full width */}
           <Card className="p-2 bg-card border-border">
             <ControlButton
               icon={RefreshCw}
               label="Nullstill"
               status="idle"
               onClick={resetFilling}
-              className="bg-secondary hover:bg-secondary/80 h-20"
+              className="bg-secondary hover:bg-secondary/80 h-24"
             />
           </Card>
           
