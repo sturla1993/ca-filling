@@ -39,43 +39,45 @@ const Index = () => {
   const [siloWeight, setSiloWeight] = useState(0);
   const [useSimulation, setUseSimulation] = useState(true);
 
-  // Pi-tilkobling
+  // Pi-tilkobling - oppdater alltid når vi får data fra Pi
   const handleSensorData = useCallback((data: SensorData) => {
-    if (!useSimulation) {
-      setTankTemp(data.temperature);
-      
-      const pumpOn = data.relays.pump;
-      const valveOn = data.relays.valve;
-      const damperOn = data.relays.damper;
-      
-      setPumpStatus(pumpOn ? "running" : "idle");
-      setValveStatus(valveOn ? "running" : "idle");
-      setDamperStatus(damperOn ? "running" : "idle");
-      
-      // Bestem fyllemodus basert på relé-status
-      if (pumpOn || valveOn) {
-        setIsFillingFromTank(true);
-        if (data.state.tank_weight >= data.state.tank_target * 0.9) {
-          setFillMode("fine");
-        } else {
-          setFillMode("coarse");
-        }
-      } else if (damperOn) {
-        setIsFillingFromTank(false);
-        if (data.state.silo_weight >= data.state.silo_target * 0.9) {
-          setFillMode("fine");
-        } else {
-          setFillMode("coarse");
-        }
+    // Alltid oppdater fra Pi-data når vi mottar det
+    setTankTemp(data.temperature);
+    
+    const pumpOn = data.relays.pump;
+    const valveOn = data.relays.valve;
+    const damperOn = data.relays.damper;
+    
+    setPumpStatus(pumpOn ? "running" : "idle");
+    setValveStatus(valveOn ? "running" : "idle");
+    setDamperStatus(damperOn ? "running" : "idle");
+    
+    // Bestem fyllemodus basert på relé-status
+    if (pumpOn || valveOn) {
+      setIsFillingFromTank(true);
+      if (data.state.tank_weight >= data.state.tank_target * 0.9) {
+        setFillMode("fine");
       } else {
-        setFillMode("idle");
+        setFillMode("coarse");
       }
-      
-      // Bruk tank_weight og silo_weight fra backend state
-      setTankWeight(data.state.tank_weight);
-      setSiloWeight(data.state.silo_weight);
+    } else if (damperOn) {
+      setIsFillingFromTank(false);
+      if (data.state.silo_weight >= data.state.silo_target * 0.9) {
+        setFillMode("fine");
+      } else {
+        setFillMode("coarse");
+      }
+    } else {
+      setFillMode("idle");
     }
-  }, [useSimulation]);
+    
+    // Bruk tank_weight og silo_weight fra backend state
+    setTankWeight(data.state.tank_weight);
+    setSiloWeight(data.state.silo_weight);
+    
+    // Slå av simulering når vi mottar data
+    setUseSimulation(false);
+  }, []);
 
   const handleConnectionChange = useCallback((connected: boolean) => {
     if (connected) {
