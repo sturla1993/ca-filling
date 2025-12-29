@@ -16,10 +16,12 @@ from flask_cors import CORS
 # Sjekk om vi kjører på Pi eller i utviklingsmiljø
 try:
     import smbus2
-    import RPi.GPIO as GPIO
+    import gpiod
+    from gpiod.line import Direction, Value
     ON_RASPBERRY_PI = True
 except ImportError:
     ON_RASPBERRY_PI = False
+    gpiod = None
     print("⚠️  Kjører i simuleringsmodus (ikke på Raspberry Pi)")
 
 # Miljøvariabler for delvis simulering
@@ -37,14 +39,27 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # ============== KONFIGURASJON ==============
 
+# GPIO-pinner for relékort (Waveshare 8-ch, direkte GPIO, invertert logikk)
+# LOW = PÅ, HIGH = AV
+GPIO_CHIP = "gpiochip0"
+GPIO_RELAY_PUMP = 5     # CH1 - Pumpe
+GPIO_RELAY_VALVE = 6    # CH2 - Ventil
+GPIO_RELAY_DAMPER = 13  # CH3 - Spjeld
+
 # I2C-adresser
-RELAY_I2C_ADDR = 0x20  # Waveshare Relay Board
 ADS1115_I2C_ADDR = 0x48  # ADS1115 ADC
 
 # Relay-mapping (relay nummer -> funksjon)
 RELAY_PUMP = 1      # Pumpe (tank)
 RELAY_VALVE = 2     # Ventil (tank)
 RELAY_DAMPER = 3    # Spjeld (silo)
+
+# GPIO-mapping (relay nummer -> GPIO pin)
+RELAY_GPIO_MAP = {
+    RELAY_PUMP: GPIO_RELAY_PUMP,
+    RELAY_VALVE: GPIO_RELAY_VALVE,
+    RELAY_DAMPER: GPIO_RELAY_DAMPER
+}
 
 # Veiecelle konfigurasjon (4-20mA)
 WEIGHT_MIN_MA = 4.0      # mA ved 0 kg
@@ -57,27 +72,46 @@ DS18B20_BASE_DIR = '/sys/bus/w1/devices/'
 # ============== HARDWARE KLASSER ==============
 
 class RelayController:
-    """Kontrollerer Waveshare 8-Channel Relay Board via I2C"""
+    """Kontrollerer Waveshare 8-Channel Relay Board via GPIO (direkte, invertert logikk)"""
     
     def __init__(self):
         self.states = {1: False, 2: False, 3: False}
-        self.bus = None
-        if ON_RASPBERRY_PI and not SIMULATE_RELAYS:
+        self.chip = None
+        self.lines = {}
+        
+        if ON_RASPBERRY_PI and not SIMULATE_RELAYS and gpiod:
             try:
-                self.bus = smbus2.SMBus(1)
-                # Initialiser alle releer til AV
-                self._write_states()
-                print("✅ Relay board tilkoblet")
+                self.chip = gpiod.Chip(GPIO_CHIP)
+                # Konfigurer GPIO-linjer som output med HIGH (AV, pga invertert logikk)
+                for relay_num, gpio_pin in RELAY_GPIO_MAP.items():
+                    config = gpiod.LineSettings(
+                        direction=Direction.OUTPUT,
+                        output_value=Value.ACTIVE  # HIGH = AV
+                    )
+                    self.lines[relay_num] = self.chip.request_lines(
+                        consumer="ibc-relay",
+                        config={gpio_pin: config}
+                    )
+                print(f"✅ Relay board tilkoblet via GPIO (pins {list(RELAY_GPIO_MAP.values())})")
             except Exception as e:
-                print(f"❌ Kunne ikke koble til relay board: {e}")
+                print(f"❌ Kunne ikke initialisere GPIO for releer: {e}")
+                self.chip = None
     
     def set_relay(self, relay_num: int, state: bool):
         """Sett et relay til på (True) eller av (False)"""
         if relay_num not in self.states:
             return False
         self.states[relay_num] = state
-        if self.bus:
-            self._write_states()
+        
+        if relay_num in self.lines:
+            try:
+                gpio_pin = RELAY_GPIO_MAP[relay_num]
+                # Invertert logikk: LOW = PÅ, HIGH = AV
+                value = Value.INACTIVE if state else Value.ACTIVE
+                self.lines[relay_num].set_value(gpio_pin, value)
+            except Exception as e:
+                print(f"❌ GPIO-feil (relay {relay_num}): {e}")
+        
         print(f"🔌 Relay {relay_num}: {'PÅ' if state else 'AV'}")
         return True
     
@@ -89,25 +123,31 @@ class RelayController:
             'damper': self.states[RELAY_DAMPER]
         }
     
-    def _write_states(self):
-        """Skriv relay-tilstander til I2C"""
-        # Waveshare relay board bruker bit-masking
-        value = 0
-        for relay_num, state in self.states.items():
-            if state:
-                value |= (1 << (relay_num - 1))
-        try:
-            self.bus.write_byte(RELAY_I2C_ADDR, value)
-        except Exception as e:
-            print(f"❌ I2C-feil (relay): {e}")
-    
     def all_off(self):
         """Slå av alle releer (nødstopp)"""
         for relay_num in self.states:
             self.states[relay_num] = False
-        if self.bus:
-            self._write_states()
+            if relay_num in self.lines:
+                try:
+                    gpio_pin = RELAY_GPIO_MAP[relay_num]
+                    self.lines[relay_num].set_value(gpio_pin, Value.ACTIVE)  # HIGH = AV
+                except Exception as e:
+                    print(f"❌ GPIO-feil ved nødstopp (relay {relay_num}): {e}")
         print("🛑 ALLE RELEER AV")
+    
+    def __del__(self):
+        """Rydd opp GPIO-ressurser"""
+        self.all_off()
+        for line in self.lines.values():
+            try:
+                line.release()
+            except:
+                pass
+        if self.chip:
+            try:
+                self.chip.close()
+            except:
+                pass
 
 
 class WeightSensor:
