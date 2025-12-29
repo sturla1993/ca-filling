@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
-import { io, Socket } from 'socket.io-client';
 
 export interface SensorData {
   weight: number;
@@ -24,123 +23,134 @@ export interface SensorData {
 }
 
 interface UsePiConnectionOptions {
-  piUrl?: string;
   onSensorData?: (data: SensorData) => void;
   onConnectionChange?: (connected: boolean) => void;
 }
 
-export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
-  // Bruk relativ URL når servert fra nginx, ellers localhost:5000
-  const defaultUrl = typeof window !== 'undefined' && window.location.port === ''
-    ? '' // Relativ URL via nginx proxy
-    : 'http://localhost:5000';
-  
-  const {
-    piUrl = defaultUrl,
-    onSensorData,
-    onConnectionChange
-  } = options;
+const PI_URL = 'http://127.0.0.1:5000';
 
+export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isOnPi, setIsOnPi] = useState(false);
   const [lastSensorData, setLastSensorData] = useState<SensorData | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const pollingRef = useRef<number | null>(null);
+  const wasConnectedRef = useRef(false);
 
-  // Koble til Pi
+  const onSensorDataRef = useRef(options.onSensorData);
+  const onConnectionChangeRef = useRef(options.onConnectionChange);
+  
   useEffect(() => {
-    const socket = io(piUrl, {
-      transports: ['websocket'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
+    onSensorDataRef.current = options.onSensorData;
+    onConnectionChangeRef.current = options.onConnectionChange;
+  }, [options.onSensorData, options.onConnectionChange]);
 
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      console.log('✅ Koblet til Raspberry Pi');
-      setIsConnected(true);
-      onConnectionChange?.(true);
-      toast.success('Koblet til Raspberry Pi');
-    });
-
-    socket.on('disconnect', () => {
-      console.log('❌ Frakoblet fra Raspberry Pi');
-      setIsConnected(false);
-      onConnectionChange?.(false);
-      toast.error('Mistet tilkobling til Raspberry Pi');
-    });
-
-    socket.on('connected', (data: { status: string; on_raspberry_pi: boolean }) => {
-      setIsOnPi(data.on_raspberry_pi);
-      if (!data.on_raspberry_pi) {
-        toast.info('Kjører i simuleringsmodus');
+  // Poll for status
+  const fetchStatus = useCallback(async () => {
+    try {
+      const response = await fetch(`${PI_URL}/api/status`);
+      if (!response.ok) throw new Error('Fetch failed');
+      
+      const data = await response.json();
+      
+      if (!wasConnectedRef.current) {
+        wasConnectedRef.current = true;
+        setIsConnected(true);
+        setIsOnPi(data.on_raspberry_pi);
+        onConnectionChangeRef.current?.(true);
+        toast.success('Koblet til Raspberry Pi');
       }
-    });
+      
+      const sensorData: SensorData = {
+        weight: data.weight,
+        temperature: data.temperature,
+        relays: data.relays,
+        state: data.state
+      };
+      
+      setLastSensorData(sensorData);
+      onSensorDataRef.current?.(sensorData);
+      
+    } catch (error) {
+      if (wasConnectedRef.current) {
+        wasConnectedRef.current = false;
+        setIsConnected(false);
+        onConnectionChangeRef.current?.(false);
+        toast.error('Mistet tilkobling til Raspberry Pi');
+      }
+    }
+  }, []);
 
-    socket.on('sensor_data', (data: { type: string } & SensorData) => {
-      setLastSensorData(data);
-      onSensorData?.(data);
-    });
-
-    socket.on('fill_started', (data: { source: string }) => {
-      toast.success(`Fylling startet fra ${data.source === 'tank' ? 'tank' : 'silo'}`);
-    });
-
-    socket.on('fill_stopped', () => {
-      toast.info('Fylling stoppet');
-    });
-
-    socket.on('reset_complete', () => {
-      toast.success('System nullstilt');
-    });
-
-    socket.on('connect_error', (error) => {
-      console.error('Tilkoblingsfeil:', error);
-    });
-
+  useEffect(() => {
+    // Initial fetch
+    fetchStatus();
+    
+    // Poll every 200ms
+    pollingRef.current = window.setInterval(fetchStatus, 200);
+    
     return () => {
-      socket.disconnect();
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
     };
-  }, [piUrl, onSensorData, onConnectionChange]);
+  }, [fetchStatus]);
 
-  // Kommandoer
-  const startFill = useCallback((source: 'tank' | 'silo') => {
-    socketRef.current?.emit('start_fill', { source });
+  const startFill = useCallback(async (source: 'tank' | 'silo') => {
+    try {
+      await fetch(`${PI_URL}/api/relay/${source === 'tank' ? 'pump' : 'damper'}/on`, { method: 'POST' });
+      if (source === 'tank') {
+        await fetch(`${PI_URL}/api/relay/valve/on`, { method: 'POST' });
+      }
+      toast.success(`Fylling startet fra ${source === 'tank' ? 'tank' : 'silo'}`);
+    } catch (e) {
+      toast.error('Kunne ikke starte fylling');
+    }
   }, []);
 
-  const stopFill = useCallback(() => {
-    socketRef.current?.emit('stop_fill');
+  const stopFill = useCallback(async () => {
+    try {
+      await fetch(`${PI_URL}/api/emergency-stop`, { method: 'POST' });
+      toast.info('Fylling stoppet');
+    } catch (e) {
+      toast.error('Kunne ikke stoppe fylling');
+    }
   }, []);
 
-  const reset = useCallback(() => {
-    socketRef.current?.emit('reset');
+  const reset = useCallback(async () => {
+    try {
+      await fetch(`${PI_URL}/api/emergency-stop`, { method: 'POST' });
+      toast.success('System nullstilt');
+    } catch (e) {
+      toast.error('Kunne ikke nullstille');
+    }
   }, []);
 
-  const updateSettings = useCallback((settings: {
+  const updateSettings = useCallback(async (settings: {
     tank_target?: number;
     silo_target?: number;
     tank_overrun?: number;
     silo_overrun?: number;
   }) => {
-    socketRef.current?.emit('update_settings', settings);
+    try {
+      await fetch(`${PI_URL}/api/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings)
+      });
+    } catch (e) {
+      console.error('Settings update failed:', e);
+    }
   }, []);
 
   const emergencyStop = useCallback(async () => {
-    // Send via WebSocket
-    socketRef.current?.emit('stop_fill');
-    
-    // Backup via REST API
     try {
-      await fetch(`${piUrl}/api/emergency-stop`, { method: 'POST' });
+      await fetch(`${PI_URL}/api/emergency-stop`, { method: 'POST' });
     } catch (e) {
-      console.error('Nødstopp REST-feil:', e);
+      console.error('Nødstopp feilet:', e);
     }
-  }, [piUrl]);
+  }, []);
 
-  // Simulering (kun for testing)
   const simulateWeight = useCallback((addKg: number) => {
-    socketRef.current?.emit('simulate_weight', { add: addKg });
+    // Not used with REST - simulation happens on backend
   }, []);
 
   return {

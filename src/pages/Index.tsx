@@ -21,8 +21,7 @@ import { usePiConnection, SensorData } from "@/hooks/usePiConnection";
 type FillMode = "idle" | "coarse" | "fine";
 type EquipmentStatus = "running" | "stopped" | "idle";
 
-// Pi-adresse - endre denne til Pi-ens IP når du kobler til
-const PI_URL = import.meta.env.VITE_PI_URL || "http://172.20.178.135:5000";
+// Pi-adresse er nå hardkodet i usePiConnection
 
 const Index = () => {
   // State management
@@ -75,7 +74,6 @@ const Index = () => {
     updateSettings,
     emergencyStop
   } = usePiConnection({
-    piUrl: PI_URL,
     onSensorData: handleSensorData,
     onConnectionChange: handleConnectionChange
   });
