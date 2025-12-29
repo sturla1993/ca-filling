@@ -41,7 +41,8 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # GPIO-pinner for relékort (Waveshare 8-ch, direkte GPIO, invertert logikk)
 # LOW = PÅ, HIGH = AV
-GPIO_CHIP = "gpiochip0"
+# Pi 5 bruker gpiochip4, eldre Pi bruker gpiochip0
+GPIO_CHIPS = ["gpiochip4", "gpiochip0"]  # Prøv i rekkefølge
 GPIO_RELAY_PUMP = 5     # CH1 - Pumpe
 GPIO_RELAY_VALVE = 6    # CH2 - Ventil
 GPIO_RELAY_DAMPER = 13  # CH3 - Spjeld
@@ -80,22 +81,28 @@ class RelayController:
         self.lines = {}
         
         if ON_RASPBERRY_PI and not SIMULATE_RELAYS and gpiod:
-            try:
-                self.chip = gpiod.Chip(GPIO_CHIP)
-                # Konfigurer GPIO-linjer som output med HIGH (AV, pga invertert logikk)
-                for relay_num, gpio_pin in RELAY_GPIO_MAP.items():
-                    config = gpiod.LineSettings(
-                        direction=Direction.OUTPUT,
-                        output_value=Value.ACTIVE  # HIGH = AV
-                    )
-                    self.lines[relay_num] = self.chip.request_lines(
-                        consumer="ibc-relay",
-                        config={gpio_pin: config}
-                    )
-                print(f"✅ Relay board tilkoblet via GPIO (pins {list(RELAY_GPIO_MAP.values())})")
-            except Exception as e:
-                print(f"❌ Kunne ikke initialisere GPIO for releer: {e}")
-                self.chip = None
+            # Prøv å finne riktig GPIO-chip
+            for chip_name in GPIO_CHIPS:
+                try:
+                    self.chip = gpiod.Chip(chip_name)
+                    # Konfigurer GPIO-linjer som output med HIGH (AV, pga invertert logikk)
+                    for relay_num, gpio_pin in RELAY_GPIO_MAP.items():
+                        config = gpiod.LineSettings(
+                            direction=Direction.OUTPUT,
+                            output_value=Value.ACTIVE  # HIGH = AV
+                        )
+                        self.lines[relay_num] = self.chip.request_lines(
+                            consumer="ibc-relay",
+                            config={gpio_pin: config}
+                        )
+                    print(f"✅ Relay board tilkoblet via {chip_name} (pins {list(RELAY_GPIO_MAP.values())})")
+                    break
+                except Exception as e:
+                    print(f"⚠️  Prøvde {chip_name}: {e}")
+                    self.chip = None
+            
+            if not self.chip:
+                print("❌ Kunne ikke initialisere GPIO - kjører uten relékontroll")
     
     def set_relay(self, relay_num: int, state: bool):
         """Sett et relay til på (True) eller av (False)"""
