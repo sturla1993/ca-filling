@@ -30,8 +30,13 @@ interface UsePiConnectionOptions {
 }
 
 export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
+  // Bruk relativ URL når servert fra nginx, ellers localhost:5000
+  const defaultUrl = typeof window !== 'undefined' && window.location.port === ''
+    ? '' // Relativ URL via nginx proxy
+    : 'http://localhost:5000';
+  
   const {
-    piUrl = 'http://localhost:5000', // Standard Pi-adresse
+    piUrl = defaultUrl,
     onSensorData,
     onConnectionChange
   } = options;
