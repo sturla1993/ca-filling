@@ -43,10 +43,33 @@ const Index = () => {
   const handleSensorData = useCallback((data: SensorData) => {
     if (!useSimulation) {
       setTankTemp(data.temperature);
-      setPumpStatus(data.relays.pump ? "running" : "idle");
-      setValveStatus(data.relays.valve ? "running" : "idle");
-      setDamperStatus(data.relays.damper ? "running" : "idle");
-      setFillMode(data.state.fill_mode);
+      
+      const pumpOn = data.relays.pump;
+      const valveOn = data.relays.valve;
+      const damperOn = data.relays.damper;
+      
+      setPumpStatus(pumpOn ? "running" : "idle");
+      setValveStatus(valveOn ? "running" : "idle");
+      setDamperStatus(damperOn ? "running" : "idle");
+      
+      // Bestem fyllemodus basert på relé-status
+      if (pumpOn || valveOn) {
+        setIsFillingFromTank(true);
+        if (data.state.tank_weight >= data.state.tank_target * 0.9) {
+          setFillMode("fine");
+        } else {
+          setFillMode("coarse");
+        }
+      } else if (damperOn) {
+        setIsFillingFromTank(false);
+        if (data.state.silo_weight >= data.state.silo_target * 0.9) {
+          setFillMode("fine");
+        } else {
+          setFillMode("coarse");
+        }
+      } else {
+        setFillMode("idle");
+      }
       
       // Bruk tank_weight og silo_weight fra backend state
       setTankWeight(data.state.tank_weight);
