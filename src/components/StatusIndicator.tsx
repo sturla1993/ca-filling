@@ -17,9 +17,9 @@ export const StatusIndicator = ({ status, label, className }: StatusIndicatorPro
   };
 
   return (
-    <div className={cn("flex items-center gap-1.5", className)}>
-      <div className={cn("w-2 h-2 rounded-full animate-pulse", statusColors[status])} />
-      <span className="text-xs font-medium text-foreground">{label}</span>
+    <div className={cn("flex items-center gap-2", className)}>
+      <div className={cn("w-3 h-3 rounded-full animate-pulse", statusColors[status])} />
+      <span className="text-sm font-medium text-foreground">{label}</span>
     </div>
   );
 };
