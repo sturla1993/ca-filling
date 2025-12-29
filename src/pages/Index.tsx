@@ -48,12 +48,9 @@ const Index = () => {
       setDamperStatus(data.relays.damper ? "running" : "idle");
       setFillMode(data.state.fill_mode);
       
-      // Fordel vekt basert på kilde
-      if (data.state.fill_source === 'tank') {
-        setTankWeight(data.weight);
-      } else if (data.state.fill_source === 'silo') {
-        setSiloWeight(data.weight);
-      }
+      // Bruk tank_weight og silo_weight fra backend state
+      setTankWeight(data.state.tank_weight);
+      setSiloWeight(data.state.silo_weight);
     }
   }, [useSimulation]);
 
