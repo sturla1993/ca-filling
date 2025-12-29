@@ -1,0 +1,15 @@
+[Unit]
+Description=IBC Filling System Backend
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/menstad
+Environment=SIMULATE_WEIGHT=1
+ExecStart=/usr/bin/python3 /home/menstad/server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
