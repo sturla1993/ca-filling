@@ -332,6 +332,50 @@ def update_settings():
     return jsonify({'success': True, 'settings': system_state})
 
 
+@app.route('/api/start-fill/<source>', methods=['POST'])
+def start_fill(source):
+    """Start fylling fra tank eller silo via REST"""
+    if source not in ['tank', 'silo']:
+        return jsonify({'error': 'Ugyldig kilde, bruk tank eller silo'}), 400
+    
+    system_state['filling'] = True
+    system_state['fill_source'] = source
+    system_state['fill_mode'] = 'coarse'
+    
+    if source == 'tank':
+        relay_controller.set_relay(RELAY_PUMP, True)
+        relay_controller.set_relay(RELAY_VALVE, True)
+    else:
+        relay_controller.set_relay(RELAY_DAMPER, True)
+    
+    print(f"▶️ Fylling startet fra {source}")
+    return jsonify({'success': True, 'source': source})
+
+
+@app.route('/api/stop-fill', methods=['POST'])
+def stop_fill():
+    """Stopp fylling via REST"""
+    relay_controller.all_off()
+    system_state['filling'] = False
+    system_state['fill_mode'] = 'idle'
+    print("⏹️ Fylling stoppet")
+    return jsonify({'success': True})
+
+
+@app.route('/api/reset', methods=['POST'])
+def reset_system():
+    """Nullstill system via REST"""
+    relay_controller.all_off()
+    system_state['filling'] = False
+    system_state['fill_mode'] = 'idle'
+    system_state['tank_weight'] = 0
+    system_state['silo_weight'] = 0
+    if SIMULATE_WEIGHT:
+        weight_sensor.simulate_reset()
+    print("🔄 System nullstilt")
+    return jsonify({'success': True})
+
+
 # ============== WEBSOCKET EVENTS ==============
 
 @socketio.on('connect')
