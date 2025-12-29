@@ -96,10 +96,8 @@ export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
 
   const startFill = useCallback(async (source: 'tank' | 'silo') => {
     try {
-      await fetch(`${PI_URL}/api/relay/${source === 'tank' ? 'pump' : 'damper'}/on`, { method: 'POST' });
-      if (source === 'tank') {
-        await fetch(`${PI_URL}/api/relay/valve/on`, { method: 'POST' });
-      }
+      const response = await fetch(`${PI_URL}/api/start-fill/${source}`, { method: 'POST' });
+      if (!response.ok) throw new Error('Start fill failed');
       toast.success(`Fylling startet fra ${source === 'tank' ? 'tank' : 'silo'}`);
     } catch (e) {
       toast.error('Kunne ikke starte fylling');
@@ -108,7 +106,7 @@ export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
 
   const stopFill = useCallback(async () => {
     try {
-      await fetch(`${PI_URL}/api/emergency-stop`, { method: 'POST' });
+      await fetch(`${PI_URL}/api/stop-fill`, { method: 'POST' });
       toast.info('Fylling stoppet');
     } catch (e) {
       toast.error('Kunne ikke stoppe fylling');
@@ -117,7 +115,7 @@ export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
 
   const reset = useCallback(async () => {
     try {
-      await fetch(`${PI_URL}/api/emergency-stop`, { method: 'POST' });
+      await fetch(`${PI_URL}/api/reset`, { method: 'POST' });
       toast.success('System nullstilt');
     } catch (e) {
       toast.error('Kunne ikke nullstille');
