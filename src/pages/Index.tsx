@@ -4,6 +4,16 @@ import { IBCVisualization } from "@/components/IBCVisualization";
 import { ControlButton } from "@/components/ControlButton";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { Card } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   Droplets, 
   Thermometer,
@@ -20,8 +30,7 @@ import { usePiConnection, SensorData } from "@/hooks/usePiConnection";
 
 type FillMode = "idle" | "coarse" | "fine";
 type EquipmentStatus = "running" | "stopped" | "idle";
-
-// Pi-adresse er nå hardkodet i usePiConnection
+type FillSource = "tank" | "silo" | null;
 
 const Index = () => {
   // State management
@@ -38,6 +47,13 @@ const Index = () => {
   const [tankWeight, setTankWeight] = useState(0);
   const [siloWeight, setSiloWeight] = useState(0);
   const [useSimulation, setUseSimulation] = useState(true);
+  
+  // Sporing av forrige fylling for avviksvarsler
+  const [lastTankFillResult, setLastTankFillResult] = useState<{ weight: number; target: number } | null>(null);
+  const [lastSiloFillResult, setLastSiloFillResult] = useState<{ weight: number; target: number } | null>(null);
+  const [pendingFillSource, setPendingFillSource] = useState<FillSource>(null);
+  const [showDeviationWarning, setShowDeviationWarning] = useState(false);
+  const [deviationMessage, setDeviationMessage] = useState("");
 
   // Pi-tilkobling - oppdater alltid når vi får data fra Pi
   const handleSensorData = useCallback((data: SensorData) => {
@@ -129,6 +145,7 @@ const Index = () => {
             
             if (newWeight >= (tankTarget - tankOverrun)) {
               toast.success(`Fylling fra tank fullført! Vekt: ${newWeight.toFixed(1)} kg`);
+              setLastTankFillResult({ weight: newWeight, target: tankTarget });
               stopFillingLocal();
               return newWeight;
             }
@@ -146,6 +163,7 @@ const Index = () => {
             
             if (newWeight >= (siloTarget - siloOverrun)) {
               toast.success(`Fylling fra silo fullført! Vekt: ${newWeight.toFixed(1)} kg`);
+              setLastSiloFillResult({ weight: newWeight, target: siloTarget });
               stopFillingLocal();
               return newWeight;
             }
@@ -159,29 +177,101 @@ const Index = () => {
     }
   }, [useSimulation, fillMode, tankTarget, siloTarget, tankOverrun, siloOverrun, isFillingFromTank]);
 
-  const startFillingFromTank = () => {
-    if (isConnected) {
-      startFill('tank');
-    } else {
-      setIsFillingFromTank(true);
-      const fillPercentage = (tankWeight / tankTarget) * 100;
-      setFillMode(fillPercentage >= 90 ? "fine" : "coarse");
-      setPumpStatus("running");
-      setValveStatus("running");
-      toast.success("Starter fylling fra tank");
+  // Sjekk om forrige fylling var utenfor målpunkt (±5% toleranse)
+  const checkDeviationWarning = (source: FillSource): boolean => {
+    const tolerance = 0.05; // 5% toleranse
+    
+    if (source === "tank" && lastTankFillResult) {
+      const deviation = Math.abs(lastTankFillResult.weight - lastTankFillResult.target) / lastTankFillResult.target;
+      if (deviation > tolerance) {
+        setDeviationMessage(
+          `Forrige tankfylling avvek fra mål: ${lastTankFillResult.weight.toFixed(1)} kg vs mål ${lastTankFillResult.target.toFixed(1)} kg (${(deviation * 100).toFixed(1)}% avvik)`
+        );
+        return true;
+      }
+    }
+    
+    if (source === "silo" && lastSiloFillResult) {
+      const deviation = Math.abs(lastSiloFillResult.weight - lastSiloFillResult.target) / lastSiloFillResult.target;
+      if (deviation > tolerance) {
+        setDeviationMessage(
+          `Forrige silofylling avvek fra mål: ${lastSiloFillResult.weight.toFixed(1)} kg vs mål ${lastSiloFillResult.target.toFixed(1)} kg (${(deviation * 100).toFixed(1)}% avvik)`
+        );
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
+  const executeStartFill = (source: FillSource) => {
+    if (!source) return;
+    
+    if (source === "tank") {
+      if (isConnected) {
+        startFill('tank');
+      } else {
+        setIsFillingFromTank(true);
+        const fillPercentage = (tankWeight / tankTarget) * 100;
+        setFillMode(fillPercentage >= 90 ? "fine" : "coarse");
+        setPumpStatus("running");
+        setValveStatus("running");
+        toast.success("Starter fylling fra tank");
+      }
+    } else if (source === "silo") {
+      if (isConnected) {
+        startFill('silo');
+      } else {
+        setIsFillingFromTank(false);
+        const fillPercentage = (siloWeight / siloTarget) * 100;
+        setFillMode(fillPercentage >= 90 ? "fine" : "coarse");
+        setDamperStatus("running");
+        toast.success("Starter fylling fra silo");
+      }
     }
   };
 
-  const startFillingFromSilo = () => {
-    if (isConnected) {
-      startFill('silo');
-    } else {
-      setIsFillingFromTank(false);
-      const fillPercentage = (siloWeight / siloTarget) * 100;
-      setFillMode(fillPercentage >= 90 ? "fine" : "coarse");
-      setDamperStatus("running");
-      toast.success("Starter fylling fra silo");
+  const startFillingFromTank = () => {
+    // Sjekk om silo kjører - ikke tillat samtidig
+    if (damperStatus === "running") {
+      toast.error("Kan ikke starte tank mens silo kjører");
+      return;
     }
+    
+    if (checkDeviationWarning("tank")) {
+      setPendingFillSource("tank");
+      setShowDeviationWarning(true);
+      return;
+    }
+    
+    executeStartFill("tank");
+  };
+
+  const startFillingFromSilo = () => {
+    // Sjekk om tank kjører - ikke tillat samtidig
+    if (pumpStatus === "running" || valveStatus === "running") {
+      toast.error("Kan ikke starte silo mens tank kjører");
+      return;
+    }
+    
+    if (checkDeviationWarning("silo")) {
+      setPendingFillSource("silo");
+      setShowDeviationWarning(true);
+      return;
+    }
+    
+    executeStartFill("silo");
+  };
+
+  const handleDeviationConfirm = () => {
+    setShowDeviationWarning(false);
+    executeStartFill(pendingFillSource);
+    setPendingFillSource(null);
+  };
+
+  const handleDeviationCancel = () => {
+    setShowDeviationWarning(false);
+    setPendingFillSource(null);
   };
 
   const stopFillingLocal = () => {
@@ -243,37 +333,62 @@ const Index = () => {
     toast.success("Innstillinger lagret");
   };
 
+  // Sjekk om den andre kilden kjører
+  const isTankRunning = pumpStatus === "running" || valveStatus === "running";
+  const isSiloRunning = damperStatus === "running";
+
   return (
-    <div className="min-h-screen bg-background p-2">
+    <div className="min-h-screen bg-background p-3">
+      {/* Avviksvarsel dialog */}
+      <AlertDialog open={showDeviationWarning} onOpenChange={setShowDeviationWarning}>
+        <AlertDialogContent className="bg-card border-status-warning">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl text-status-warning flex items-center gap-2">
+              <AlertCircle className="w-6 h-6" />
+              Avvik fra målpunkt
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base text-foreground">
+              {deviationMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDeviationCancel} className="text-base">
+              Avbryt
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeviationConfirm} className="bg-status-warning text-background text-base">
+              Fortsett likevel
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold text-foreground">IBC Fyllesystem</h1>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-foreground">IBC Fyllesystem</h1>
           {/* Tilkoblingsstatus */}
-          <div className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
+          <div className={`flex items-center gap-1.5 px-3 py-1 rounded text-sm ${
             isConnected 
               ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
               : 'bg-muted text-muted-foreground'
           }`}>
             {isConnected ? (
               <>
-                <Wifi className="w-3 h-3" />
+                <Wifi className="w-4 h-4" />
                 <span>{isOnPi ? 'Pi' : 'Sim'}</span>
               </>
             ) : (
               <>
-                <WifiOff className="w-3 h-3" />
+                <WifiOff className="w-4 h-4" />
                 <span>Offline</span>
               </>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5">
-            <Thermometer className="w-4 h-4 text-primary" />
-            <span className="text-xs font-medium text-foreground">
-              <span className="font-mono text-sm">{tankTemp.toFixed(1)}°C</span>
-            </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Thermometer className="w-5 h-5 text-primary" />
+            <span className="font-mono text-lg font-bold text-foreground">{tankTemp.toFixed(1)}°C</span>
           </div>
           <SettingsDialog
             tankTarget={tankTarget}
@@ -285,12 +400,12 @@ const Index = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-3">
         {/* Left Panel - Controls */}
-        <div className="col-span-2 space-y-2">
+        <div className="col-span-2 space-y-3">
           {/* Status Bar */}
-          <Card className="p-2 bg-card border-border">
-            <div className="grid grid-cols-3 gap-2 text-xs">
+          <Card className="p-3 bg-card border-border">
+            <div className="grid grid-cols-3 gap-3">
               <StatusIndicator
                 status={pumpStatus}
                 label={`Pumpe: ${pumpStatus === "running" ? "Kjører" : "Av"}`}
@@ -307,77 +422,79 @@ const Index = () => {
           </Card>
 
           {/* Fill Mode Indicator */}
-          <Card className="p-2 bg-card border-border">
+          <Card className="p-3 bg-card border-border">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-foreground">Modus:</span>
+              <span className="text-lg font-semibold text-foreground">Modus:</span>
               {fillMode !== "idle" && (
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-primary/20 rounded border border-primary">
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                  <span className="font-semibold text-foreground text-xs uppercase">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/20 rounded border border-primary">
+                  <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
+                  <span className="font-semibold text-foreground text-base uppercase">
                     {fillMode === "coarse" ? "Grovfylling" : "Finfylling"}
                   </span>
                 </div>
               )}
               {fillMode === "idle" && (
-                <div className="px-2 py-1 bg-muted rounded">
-                  <span className="text-muted-foreground text-xs">Inaktiv</span>
+                <div className="px-3 py-1.5 bg-muted rounded">
+                  <span className="text-muted-foreground text-base">Inaktiv</span>
                 </div>
               )}
             </div>
           </Card>
 
           {/* Tank Controls */}
-          <Card className="p-2 bg-card border-border">
-            <h2 className="text-sm font-semibold mb-2 text-foreground flex items-center gap-1.5">
-              <Droplets className="w-4 h-4 text-primary" />
+          <Card className={`p-3 bg-card border-border ${isSiloRunning ? 'opacity-50' : ''}`}>
+            <h2 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2">
+              <Droplets className="w-5 h-5 text-primary" />
               Tank
+              {isSiloRunning && <span className="text-sm text-muted-foreground ml-2">(Silo kjører)</span>}
             </h2>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               <ControlButton
                 icon={Play}
                 label="Start"
-                status={isFillingFromTank && fillMode !== "idle" ? "running" : "idle"}
+                status={isTankRunning ? "running" : "idle"}
                 onClick={startFillingFromTank}
-                disabled={fillMode !== "idle"}
+                disabled={isTankRunning || isSiloRunning}
               />
               <ControlButton
                 icon={Square}
                 label="Stopp"
-                status={isFillingFromTank && fillMode !== "idle" ? "stopped" : "idle"}
+                status={isTankRunning ? "stopped" : "idle"}
                 onClick={handleStopFilling}
-                disabled={fillMode === "idle" || !isFillingFromTank}
+                disabled={!isTankRunning}
                 className="bg-destructive/20 border-destructive"
               />
             </div>
           </Card>
 
           {/* Silo Controls */}
-          <Card className="p-2 bg-card border-border">
-            <h2 className="text-sm font-semibold mb-2 text-foreground flex items-center gap-1.5">
-              <Package className="w-4 h-4 text-primary" />
+          <Card className={`p-3 bg-card border-border ${isTankRunning ? 'opacity-50' : ''}`}>
+            <h2 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2">
+              <Package className="w-5 h-5 text-primary" />
               Silo
+              {isTankRunning && <span className="text-sm text-muted-foreground ml-2">(Tank kjører)</span>}
             </h2>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               <ControlButton
                 icon={Play}
                 label="Start"
-                status={!isFillingFromTank && fillMode !== "idle" ? "running" : "idle"}
+                status={isSiloRunning ? "running" : "idle"}
                 onClick={startFillingFromSilo}
-                disabled={fillMode !== "idle"}
+                disabled={isSiloRunning || isTankRunning}
               />
               <ControlButton
                 icon={Square}
                 label="Stopp"
-                status={!isFillingFromTank && fillMode !== "idle" ? "stopped" : "idle"}
+                status={isSiloRunning ? "stopped" : "idle"}
                 onClick={handleStopFilling}
-                disabled={fillMode === "idle" || isFillingFromTank}
+                disabled={!isSiloRunning}
                 className="bg-destructive/20 border-destructive"
               />
             </div>
           </Card>
 
           {/* Emergency Stop */}
-          <Card className="p-2 bg-destructive/20 border-destructive">
+          <Card className="p-3 bg-destructive/20 border-destructive">
             <ControlButton
               icon={Square}
               label="NØDSTOPP"
@@ -389,7 +506,7 @@ const Index = () => {
         </div>
 
         {/* Right Panel - IBC Visualization */}
-        <div className="col-span-1 space-y-2">
+        <div className="col-span-1 space-y-3">
           <IBCVisualization
             currentWeight={currentWeight}
             targetWeight={totalTarget}
@@ -399,7 +516,7 @@ const Index = () => {
           />
           
           {/* Reset Button - Full width */}
-          <Card className="p-2 bg-card border-border">
+          <Card className="p-3 bg-card border-border">
             <ControlButton
               icon={RefreshCw}
               label="Nullstill"
@@ -411,10 +528,10 @@ const Index = () => {
           
           {/* Warnings */}
           {tankTemp > 30 && (
-            <Card className="p-2 bg-status-warning/20 border-status-warning">
+            <Card className="p-3 bg-status-warning/20 border-status-warning">
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-status-warning" />
-                <div className="text-xs text-foreground font-semibold">Temp advarsel</div>
+                <AlertCircle className="w-5 h-5 text-status-warning" />
+                <div className="text-base text-foreground font-semibold">Temp advarsel</div>
               </div>
             </Card>
           )}

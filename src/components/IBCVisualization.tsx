@@ -22,11 +22,11 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tan
   }, [currentWeight, maxCapacity, tankWeight, siloWeight]);
 
   return (
-    <div className="flex flex-col items-center gap-2 p-2 bg-card rounded border border-border">
-      <h3 className="text-sm font-semibold text-foreground">IBC</h3>
+    <div className="flex flex-col items-center gap-3 p-3 bg-card rounded border border-border">
+      <h3 className="text-lg font-semibold text-foreground">IBC</h3>
       
       {/* IBC Container Visualization */}
-      <div className="relative w-32 h-44 bg-tank-empty border-2 border-border rounded-lg overflow-hidden">
+      <div className="relative w-36 h-52 bg-tank-empty border-2 border-border rounded-lg overflow-hidden">
         {/* Target line */}
         <div
           className="absolute w-full h-0.5 bg-status-warning border-t-2 border-dashed border-status-warning z-10"
@@ -62,35 +62,35 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tan
             className="absolute w-full flex items-center"
             style={{ bottom: `${mark}%`, transform: 'translateY(50%)' }}
           >
-            <div className="w-1.5 h-px bg-muted-foreground" />
-            <span className="ml-1 text-[10px] text-muted-foreground">{mark}%</span>
+            <div className="w-2 h-px bg-muted-foreground" />
+            <span className="ml-1 text-xs text-muted-foreground">{mark}%</span>
           </div>
         ))}
       </div>
 
       {/* Weight displays */}
-      <div className="grid grid-cols-2 gap-2 w-full">
+      <div className="grid grid-cols-2 gap-3 w-full">
         <div className="text-center">
-          <div className="text-[10px] text-muted-foreground mb-0.5">Nå</div>
-          <div className="text-sm font-mono font-bold text-foreground">
+          <div className="text-sm text-muted-foreground mb-1">Nå</div>
+          <div className="text-xl font-mono font-bold text-foreground">
             {currentWeight.toFixed(1)}
           </div>
-          <div className="text-[9px] text-muted-foreground">kg</div>
+          <div className="text-xs text-muted-foreground">kg</div>
         </div>
         
         <div className="text-center">
-          <div className="text-[10px] text-muted-foreground mb-0.5">Mål</div>
-          <div className="text-sm font-mono font-bold text-status-warning">
+          <div className="text-sm text-muted-foreground mb-1">Mål</div>
+          <div className="text-xl font-mono font-bold text-status-warning">
             {targetWeight.toFixed(1)}
           </div>
-          <div className="text-[9px] text-muted-foreground">kg</div>
+          <div className="text-xs text-muted-foreground">kg</div>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div className="w-full bg-muted rounded-full h-1.5">
+      <div className="w-full bg-muted rounded-full h-2">
         <div
-          className="bg-primary h-1.5 rounded-full transition-all duration-500"
+          className="bg-primary h-2 rounded-full transition-all duration-500"
           style={{ width: `${Math.min((currentWeight / targetWeight) * 100, 100)}%` }}
         />
       </div>
