@@ -16,12 +16,11 @@ from flask_cors import CORS
 # Sjekk om vi kjører på Pi eller i utviklingsmiljø
 try:
     import smbus2
-    import gpiod
-    from gpiod.line import Direction, Value
+    import lgpio
     ON_RASPBERRY_PI = True
 except ImportError:
     ON_RASPBERRY_PI = False
-    gpiod = None
+    lgpio = None
     print("⚠️  Kjører i simuleringsmodus (ikke på Raspberry Pi)")
 
 # Miljøvariabler for delvis simulering
@@ -41,8 +40,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # GPIO-pinner for relékort (Waveshare 8-ch, direkte GPIO, invertert logikk)
 # LOW = PÅ, HIGH = AV
-# Pi 5 bruker gpiochip4, eldre Pi bruker gpiochip0
-GPIO_CHIPS = ["gpiochip4", "gpiochip0"]  # Prøv i rekkefølge
+GPIO_CHIP = 0  # gpiochip0 for lgpio
 GPIO_RELAY_PUMP = 5     # CH1 - Pumpe
 GPIO_RELAY_VALVE = 6    # CH2 - Ventil
 GPIO_RELAY_DAMPER = 13  # CH3 - Spjeld
@@ -73,36 +71,22 @@ DS18B20_BASE_DIR = '/sys/bus/w1/devices/'
 # ============== HARDWARE KLASSER ==============
 
 class RelayController:
-    """Kontrollerer Waveshare 8-Channel Relay Board via GPIO (direkte, invertert logikk)"""
+    """Kontrollerer Waveshare 8-Channel Relay Board via lgpio (invertert logikk)"""
     
     def __init__(self):
         self.states = {1: False, 2: False, 3: False}
-        self.chip = None
-        self.lines = {}
+        self.handle = None
         
-        if ON_RASPBERRY_PI and not SIMULATE_RELAYS and gpiod:
-            # Prøv å finne riktig GPIO-chip
-            for chip_name in GPIO_CHIPS:
-                try:
-                    self.chip = gpiod.Chip(chip_name)
-                    # Konfigurer GPIO-linjer som output med HIGH (AV, pga invertert logikk)
-                    for relay_num, gpio_pin in RELAY_GPIO_MAP.items():
-                        config = gpiod.LineSettings(
-                            direction=Direction.OUTPUT,
-                            output_value=Value.ACTIVE  # HIGH = AV
-                        )
-                        self.lines[relay_num] = self.chip.request_lines(
-                            consumer="ibc-relay",
-                            config={gpio_pin: config}
-                        )
-                    print(f"✅ Relay board tilkoblet via {chip_name} (pins {list(RELAY_GPIO_MAP.values())})")
-                    break
-                except Exception as e:
-                    print(f"⚠️  Prøvde {chip_name}: {e}")
-                    self.chip = None
-            
-            if not self.chip:
-                print("❌ Kunne ikke initialisere GPIO - kjører uten relékontroll")
+        if ON_RASPBERRY_PI and not SIMULATE_RELAYS and lgpio:
+            try:
+                self.handle = lgpio.gpiochip_open(GPIO_CHIP)
+                # Konfigurer GPIO-pinner som output med HIGH (AV, pga invertert logikk)
+                for gpio_pin in RELAY_GPIO_MAP.values():
+                    lgpio.gpio_claim_output(self.handle, gpio_pin, 1)  # 1 = HIGH = AV
+                print(f"✅ Relay board tilkoblet via lgpio (pins {list(RELAY_GPIO_MAP.values())})")
+            except Exception as e:
+                print(f"❌ Kunne ikke initialisere GPIO: {e}")
+                self.handle = None
     
     def set_relay(self, relay_num: int, state: bool):
         """Sett et relay til på (True) eller av (False)"""
@@ -110,12 +94,12 @@ class RelayController:
             return False
         self.states[relay_num] = state
         
-        if relay_num in self.lines:
+        if self.handle is not None:
             try:
                 gpio_pin = RELAY_GPIO_MAP[relay_num]
                 # Invertert logikk: LOW = PÅ, HIGH = AV
-                value = Value.INACTIVE if state else Value.ACTIVE
-                self.lines[relay_num].set_value(gpio_pin, value)
+                value = 0 if state else 1
+                lgpio.gpio_write(self.handle, gpio_pin, value)
             except Exception as e:
                 print(f"❌ GPIO-feil (relay {relay_num}): {e}")
         
@@ -134,25 +118,20 @@ class RelayController:
         """Slå av alle releer (nødstopp)"""
         for relay_num in self.states:
             self.states[relay_num] = False
-            if relay_num in self.lines:
+            if self.handle is not None:
                 try:
                     gpio_pin = RELAY_GPIO_MAP[relay_num]
-                    self.lines[relay_num].set_value(gpio_pin, Value.ACTIVE)  # HIGH = AV
+                    lgpio.gpio_write(self.handle, gpio_pin, 1)  # HIGH = AV
                 except Exception as e:
                     print(f"❌ GPIO-feil ved nødstopp (relay {relay_num}): {e}")
         print("🛑 ALLE RELEER AV")
     
     def __del__(self):
         """Rydd opp GPIO-ressurser"""
-        self.all_off()
-        for line in self.lines.values():
+        if self.handle is not None:
             try:
-                line.release()
-            except:
-                pass
-        if self.chip:
-            try:
-                self.chip.close()
+                self.all_off()
+                lgpio.gpiochip_close(self.handle)
             except:
                 pass
 
