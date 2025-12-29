@@ -252,8 +252,18 @@ system_state = {
 # ============== BAKGRUNNSTRÅD FOR SENSORDATA ==============
 
 def sensor_broadcast_loop():
-    """Send sensordata til alle tilkoblede klienter hvert 100ms"""
+    """Oppdater sensordata og simuler vekt når fylling pågår"""
     while True:
+        # Simuler vektøkning når releene er på
+        relays = relay_controller.get_states()
+        if SIMULATE_WEIGHT:
+            if relays['pump'] or relays['valve']:
+                # Tank fylling - ca 10 kg/sek
+                weight_sensor.simulate_add_weight(1.0)
+            if relays['damper']:
+                # Silo fylling - ca 10 kg/sek
+                weight_sensor.simulate_add_weight(1.0)
+        
         data = {
             'type': 'sensor_update',
             'weight': weight_sensor.read_weight(),
