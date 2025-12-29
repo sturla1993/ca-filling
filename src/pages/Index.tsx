@@ -22,7 +22,7 @@ type FillMode = "idle" | "coarse" | "fine";
 type EquipmentStatus = "running" | "stopped" | "idle";
 
 // Pi-adresse - endre denne til Pi-ens IP når du kobler til
-const PI_URL = import.meta.env.VITE_PI_URL || "http://172.20.178.181:5000";
+const PI_URL = import.meta.env.VITE_PI_URL || "http://172.20.178.135:5000";
 
 const Index = () => {
   // State management
