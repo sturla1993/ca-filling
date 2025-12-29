@@ -27,7 +27,10 @@ interface UsePiConnectionOptions {
   onConnectionChange?: (connected: boolean) => void;
 }
 
-const PI_URL = 'http://127.0.0.1:5000';
+// Use relative URLs when served via nginx, or direct URL for development
+const PI_URL = window.location.port === '5000' ? '' : 
+               window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+               ? '' : 'http://127.0.0.1:5000';
 
 export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
   const [isConnected, setIsConnected] = useState(false);
