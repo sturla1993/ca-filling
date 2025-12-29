@@ -22,6 +22,15 @@ except ImportError:
     ON_RASPBERRY_PI = False
     print("⚠️  Kjører i simuleringsmodus (ikke på Raspberry Pi)")
 
+# Miljøvariabler for delvis simulering
+SIMULATE_WEIGHT = os.environ.get('SIMULATE_WEIGHT', '0') == '1'
+SIMULATE_RELAYS = os.environ.get('SIMULATE_RELAYS', '0') == '1'
+SIMULATE_ALL = os.environ.get('SIMULATE', '0') == '1'
+
+if SIMULATE_ALL:
+    SIMULATE_WEIGHT = True
+    SIMULATE_RELAYS = True
+
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
@@ -52,17 +61,22 @@ class RelayController:
     
     def __init__(self):
         self.states = {1: False, 2: False, 3: False}
-        if ON_RASPBERRY_PI:
-            self.bus = smbus2.SMBus(1)
-            # Initialiser alle releer til AV
-            self._write_states()
+        self.bus = None
+        if ON_RASPBERRY_PI and not SIMULATE_RELAYS:
+            try:
+                self.bus = smbus2.SMBus(1)
+                # Initialiser alle releer til AV
+                self._write_states()
+                print("✅ Relay board tilkoblet")
+            except Exception as e:
+                print(f"❌ Kunne ikke koble til relay board: {e}")
     
     def set_relay(self, relay_num: int, state: bool):
         """Sett et relay til på (True) eller av (False)"""
         if relay_num not in self.states:
             return False
         self.states[relay_num] = state
-        if ON_RASPBERRY_PI:
+        if self.bus:
             self._write_states()
         print(f"🔌 Relay {relay_num}: {'PÅ' if state else 'AV'}")
         return True
@@ -91,7 +105,7 @@ class RelayController:
         """Slå av alle releer (nødstopp)"""
         for relay_num in self.states:
             self.states[relay_num] = False
-        if ON_RASPBERRY_PI:
+        if self.bus:
             self._write_states()
         print("🛑 ALLE RELEER AV")
 
@@ -100,13 +114,18 @@ class WeightSensor:
     """Leser industriell veiecelle via ADS1115 (4-20mA)"""
     
     def __init__(self):
-        if ON_RASPBERRY_PI:
-            self.bus = smbus2.SMBus(1)
+        self.bus = None
+        if ON_RASPBERRY_PI and not SIMULATE_WEIGHT:
+            try:
+                self.bus = smbus2.SMBus(1)
+                print("✅ Vektsensor (ADC) tilkoblet")
+            except Exception as e:
+                print(f"❌ Kunne ikke koble til vektsensor: {e}")
         self._simulated_weight = 0.0
     
     def read_weight(self) -> float:
         """Les vekt i kg fra veiecelle"""
-        if not ON_RASPBERRY_PI:
+        if not self.bus or SIMULATE_WEIGHT:
             return self._simulated_weight
         
         try:
@@ -325,7 +344,7 @@ def handle_reset():
     system_state['fill_mode'] = 'idle'
     system_state['tank_weight'] = 0
     system_state['silo_weight'] = 0
-    if not ON_RASPBERRY_PI:
+    if SIMULATE_WEIGHT:
         weight_sensor.simulate_reset()
     emit('reset_complete', {})
     print("🔄 System nullstilt")
@@ -350,7 +369,7 @@ def handle_update_settings(data):
 @socketio.on('simulate_weight')
 def handle_simulate_weight(data):
     """Simuler vektøkning (kun for testing)"""
-    if not ON_RASPBERRY_PI:
+    if SIMULATE_WEIGHT:
         weight_sensor.simulate_add_weight(data.get('add', 1.0))
 
 
@@ -360,7 +379,16 @@ if __name__ == '__main__':
     print("=" * 50)
     print("  IBC Fyllesystem - Raspberry Pi Backend")
     print("=" * 50)
-    print(f"  Modus: {'Raspberry Pi' if ON_RASPBERRY_PI else 'Simulering'}")
+    mode_parts = []
+    if ON_RASPBERRY_PI:
+        mode_parts.append("Raspberry Pi")
+    else:
+        mode_parts.append("Simulering (full)")
+    if SIMULATE_WEIGHT:
+        mode_parts.append("Vekt: simulert")
+    if SIMULATE_RELAYS:
+        mode_parts.append("Releer: simulert")
+    print(f"  Modus: {', '.join(mode_parts)}")
     print("=" * 50)
     
     # Start sensor-broadcast i bakgrunnen
