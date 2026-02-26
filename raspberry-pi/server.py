@@ -41,22 +41,25 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 # GPIO-pinner for relékort (Waveshare 8-ch, direkte GPIO, invertert logikk)
 # LOW = PÅ, HIGH = AV
 GPIO_CHIP = 0  # gpiochip0 for lgpio
-GPIO_RELAY_PUMP = 5     # CH1 - Pumpe
-GPIO_RELAY_VALVE = 6    # CH2 - Ventil
-GPIO_RELAY_DAMPER = 13  # CH3 - Spjeld
+GPIO_RELAY_PUMP = 5        # CH1 - Pumpe
+GPIO_RELAY_VALVE = 6       # CH2 - Ventil (grov)
+GPIO_RELAY_FINE_VALVE = 19 # CH3 - Ventil (fin)
+GPIO_RELAY_DAMPER = 13     # CH4 - Spjeld
 
 # I2C-adresser
 ADS1115_I2C_ADDR = 0x48  # ADS1115 ADC
 
 # Relay-mapping (relay nummer -> funksjon)
-RELAY_PUMP = 1      # Pumpe (tank)
-RELAY_VALVE = 2     # Ventil (tank)
-RELAY_DAMPER = 3    # Spjeld (silo)
+RELAY_PUMP = 1           # Pumpe (tank)
+RELAY_VALVE = 2          # Ventil grov (tank)
+RELAY_FINE_VALVE = 3     # Ventil fin (tank)
+RELAY_DAMPER = 4         # Spjeld (silo)
 
 # GPIO-mapping (relay nummer -> GPIO pin)
 RELAY_GPIO_MAP = {
     RELAY_PUMP: GPIO_RELAY_PUMP,
     RELAY_VALVE: GPIO_RELAY_VALVE,
+    RELAY_FINE_VALVE: GPIO_RELAY_FINE_VALVE,
     RELAY_DAMPER: GPIO_RELAY_DAMPER
 }
 
@@ -74,7 +77,7 @@ class RelayController:
     """Kontrollerer Waveshare 8-Channel Relay Board via lgpio (invertert logikk)"""
     
     def __init__(self):
-        self.states = {1: False, 2: False, 3: False}
+        self.states = {1: False, 2: False, 3: False, 4: False}
         self.handle = None
         
         if ON_RASPBERRY_PI and not SIMULATE_RELAYS and lgpio:
@@ -111,6 +114,7 @@ class RelayController:
         return {
             'pump': self.states[RELAY_PUMP],
             'valve': self.states[RELAY_VALVE],
+            'fine_valve': self.states[RELAY_FINE_VALVE],
             'damper': self.states[RELAY_DAMPER]
         }
     
@@ -156,25 +160,19 @@ class WeightSensor:
         
         try:
             # Les fra ADS1115 kanal 0
-            # Konfigurasjon: Single-ended, ±4.096V, 128 SPS
-            config = 0xC183  # Kanal 0, gain 1, single-shot
+            config = 0xC183
             self.bus.write_i2c_block_data(ADS1115_I2C_ADDR, 0x01, 
                                           [(config >> 8) & 0xFF, config & 0xFF])
-            time.sleep(0.01)  # Vent på konvertering
+            time.sleep(0.01)
             
-            # Les resultat
             data = self.bus.read_i2c_block_data(ADS1115_I2C_ADDR, 0x00, 2)
             raw = (data[0] << 8) | data[1]
             if raw > 32767:
                 raw -= 65536
             
-            # Konverter til spenning (med 250Ω motstand: 4-20mA → 1-5V)
             voltage = (raw / 32767.0) * 4.096
-            
-            # Konverter spenning til strøm (I = V/R, R = 250Ω)
             current_ma = (voltage / 0.250)
             
-            # Konverter strøm til vekt
             if current_ma < WEIGHT_MIN_MA:
                 return 0.0
             
@@ -188,11 +186,9 @@ class WeightSensor:
             return 0.0
     
     def simulate_add_weight(self, kg: float):
-        """Simuler vektøkning (kun for testing)"""
         self._simulated_weight = min(WEIGHT_MAX_KG, self._simulated_weight + kg)
     
     def simulate_reset(self):
-        """Nullstill simulert vekt"""
         self._simulated_weight = 0.0
 
 
@@ -205,7 +201,6 @@ class TemperatureSensor:
             self._find_sensor()
     
     def _find_sensor(self):
-        """Finn DS18B20 sensor"""
         try:
             devices = glob.glob(DS18B20_BASE_DIR + '28*')
             if devices:
@@ -215,9 +210,7 @@ class TemperatureSensor:
             print(f"❌ Kunne ikke finne DS18B20: {e}")
     
     def read_temperature(self) -> float:
-        """Les temperatur i °C"""
         if not ON_RASPBERRY_PI or not self.device_file:
-            # Simuler temperatur rundt 22°C
             return 22.0 + (time.time() % 10) * 0.1
         
         try:
@@ -238,15 +231,57 @@ temp_sensor = TemperatureSensor()
 # Tilstand
 system_state = {
     'filling': False,
-    'fill_source': None,  # 'tank' eller 'silo'
-    'fill_mode': 'idle',  # 'idle', 'coarse', 'fine'
+    'fill_source': None,       # 'tank' eller 'silo'
+    'fill_mode': 'idle',       # 'idle', 'coarse', 'fine'
     'tank_target': 500,
     'silo_target': 500,
+    'tank_fine_threshold': 450,  # Vekt der finfylling starter
     'tank_overrun': 5,
     'silo_overrun': 5,
     'tank_weight': 0,
     'silo_weight': 0
 }
+
+
+# ============== AUTOMATISK FINFYLLING ==============
+
+def check_auto_fine_fill():
+    """Sjekk om vi skal bytte fra grovfylling til finfylling for tank"""
+    if (system_state['filling'] and 
+        system_state['fill_source'] == 'tank' and 
+        system_state['fill_mode'] == 'coarse'):
+        
+        if system_state['tank_weight'] >= system_state['tank_fine_threshold']:
+            # Bytt til finfylling: slå av pumpe+grovventil, start finventil
+            relay_controller.set_relay(RELAY_PUMP, False)
+            relay_controller.set_relay(RELAY_VALVE, False)
+            relay_controller.set_relay(RELAY_FINE_VALVE, True)
+            system_state['fill_mode'] = 'fine'
+            print(f"🔄 Bytter til finfylling ved {system_state['tank_weight']:.1f} kg")
+
+
+def check_auto_stop():
+    """Sjekk om fylling skal stoppes automatisk (mål minus etterrenning)"""
+    if not system_state['filling']:
+        return
+    
+    source = system_state['fill_source']
+    
+    if source == 'tank':
+        stop_at = system_state['tank_target'] - system_state['tank_overrun']
+        if system_state['tank_weight'] >= stop_at:
+            relay_controller.all_off()
+            system_state['filling'] = False
+            system_state['fill_mode'] = 'idle'
+            print(f"✅ Tankfylling fullført ved {system_state['tank_weight']:.1f} kg (mål: {system_state['tank_target']} kg)")
+    
+    elif source == 'silo':
+        stop_at = system_state['silo_target'] - system_state['silo_overrun']
+        if system_state['silo_weight'] >= stop_at:
+            relay_controller.all_off()
+            system_state['filling'] = False
+            system_state['fill_mode'] = 'idle'
+            print(f"✅ Silofylling fullført ved {system_state['silo_weight']:.1f} kg (mål: {system_state['silo_target']} kg)")
 
 
 # ============== BAKGRUNNSTRÅD FOR SENSORDATA ==============
@@ -259,11 +294,18 @@ def sensor_broadcast_loop():
         relays = relay_controller.get_states()
         if SIMULATE_WEIGHT:
             if relays['pump'] or relays['valve']:
-                # Tank fylling - ca 10 kg/sek
+                # Grovfylling tank - ca 10 kg/sek
                 system_state['tank_weight'] += 1.0
+            if relays['fine_valve']:
+                # Finfylling tank - ca 1 kg/sek
+                system_state['tank_weight'] += 0.1
             if relays['damper']:
                 # Silo fylling - ca 10 kg/sek
                 system_state['silo_weight'] += 1.0
+        
+        # Sjekk automatisk overgang til finfylling og autostopp
+        check_auto_fine_fill()
+        check_auto_stop()
         
         data = {
             'type': 'sensor_update',
@@ -296,6 +338,7 @@ def control_relay(relay_name, action):
     relay_map = {
         'pump': RELAY_PUMP,
         'valve': RELAY_VALVE,
+        'fine_valve': RELAY_FINE_VALVE,
         'damper': RELAY_DAMPER
     }
     
@@ -325,6 +368,8 @@ def update_settings():
         system_state['tank_target'] = float(data['tank_target'])
     if 'silo_target' in data:
         system_state['silo_target'] = float(data['silo_target'])
+    if 'tank_fine_threshold' in data:
+        system_state['tank_fine_threshold'] = float(data['tank_fine_threshold'])
     if 'tank_overrun' in data:
         system_state['tank_overrun'] = float(data['tank_overrun'])
     if 'silo_overrun' in data:
@@ -343,9 +388,12 @@ def start_fill(source):
     system_state['fill_mode'] = 'coarse'
     
     if source == 'tank':
+        # Start pumpe + grovventil simultant
         relay_controller.set_relay(RELAY_PUMP, True)
         relay_controller.set_relay(RELAY_VALVE, True)
+        relay_controller.set_relay(RELAY_FINE_VALVE, False)  # Sørg for at finventil er av
     else:
+        # Start spjeld for tørrstoff
         relay_controller.set_relay(RELAY_DAMPER, True)
     
     print(f"▶️ Fylling startet fra {source}")
@@ -400,6 +448,7 @@ def handle_start_fill(data):
     if source == 'tank':
         relay_controller.set_relay(RELAY_PUMP, True)
         relay_controller.set_relay(RELAY_VALVE, True)
+        relay_controller.set_relay(RELAY_FINE_VALVE, False)
     else:
         relay_controller.set_relay(RELAY_DAMPER, True)
     
@@ -438,6 +487,8 @@ def handle_update_settings(data):
         system_state['tank_target'] = float(data['tank_target'])
     if 'silo_target' in data:
         system_state['silo_target'] = float(data['silo_target'])
+    if 'tank_fine_threshold' in data:
+        system_state['tank_fine_threshold'] = float(data['tank_fine_threshold'])
     if 'tank_overrun' in data:
         system_state['tank_overrun'] = float(data['tank_overrun'])
     if 'silo_overrun' in data:
@@ -470,6 +521,7 @@ if __name__ == '__main__':
     if SIMULATE_RELAYS:
         mode_parts.append("Releer: simulert")
     print(f"  Modus: {', '.join(mode_parts)}")
+    print(f"  Releer: Pumpe(GPIO{GPIO_RELAY_PUMP}), Ventil grov(GPIO{GPIO_RELAY_VALVE}), Ventil fin(GPIO{GPIO_RELAY_FINE_VALVE}), Spjeld(GPIO{GPIO_RELAY_DAMPER})")
     print("=" * 50)
     
     # Start sensor-broadcast i bakgrunnen
