@@ -22,11 +22,11 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tan
   }, [currentWeight, maxCapacity, tankWeight, siloWeight]);
 
   return (
-    <div className="flex flex-col items-center gap-3 p-3 bg-card rounded border border-border">
-      <h3 className="text-lg font-semibold text-foreground">IBC</h3>
+    <div className="flex flex-col items-center gap-3 p-4 bg-card rounded border border-border h-full">
+      <h3 className="text-lg font-semibold text-foreground flex-shrink-0">IBC</h3>
       
       {/* IBC Container Visualization */}
-      <div className="relative w-36 h-52 bg-tank-empty border-2 border-border rounded-lg overflow-hidden">
+      <div className="relative w-44 flex-1 min-h-0 bg-tank-empty border-2 border-border rounded-lg overflow-hidden">
         {/* Target line */}
         <div
           className="absolute w-full h-0.5 bg-status-warning border-t-2 border-dashed border-status-warning z-10"

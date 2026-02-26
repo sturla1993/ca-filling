@@ -338,7 +338,7 @@ const Index = () => {
   const isSiloRunning = damperStatus === "running";
 
   return (
-    <div className="min-h-screen bg-background p-3">
+    <div className="h-screen bg-background p-4 flex flex-col overflow-hidden">
       {/* Avviksvarsel dialog */}
       <AlertDialog open={showDeviationWarning} onOpenChange={setShowDeviationWarning}>
         <AlertDialogContent className="bg-card border-status-warning">
@@ -362,12 +362,11 @@ const Index = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      {/* Header - compact */}
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-foreground">IBC Fyllesystem</h1>
-          {/* Tilkoblingsstatus */}
-          <div className={`flex items-center gap-1.5 px-3 py-1 rounded text-sm ${
+          <h1 className="text-xl font-bold text-foreground">IBC Fyllesystem</h1>
+          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-sm ${
             isConnected 
               ? 'bg-green-500/20 text-green-400 border border-green-500/50' 
               : 'bg-muted text-muted-foreground'
@@ -400,135 +399,137 @@ const Index = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      {/* Main content - fills remaining height */}
+      <div className="grid grid-cols-3 gap-4 flex-1 min-h-0">
         {/* Left Panel - Controls */}
-        <div className="col-span-2 space-y-3">
-          {/* Status Bar */}
-          <Card className="p-3 bg-card border-border">
-            <div className="grid grid-cols-3 gap-3">
-              <StatusIndicator
-                status={pumpStatus}
-                label={`Pumpe: ${pumpStatus === "running" ? "Kjører" : "Av"}`}
-              />
-              <StatusIndicator
-                status={valveStatus}
-                label={`Ventil: ${valveStatus === "running" ? "Åpen" : "Lukket"}`}
-              />
-              <StatusIndicator
-                status={damperStatus}
-                label={`Spjeld: ${damperStatus === "running" ? "Åpen" : "Lukket"}`}
-              />
-            </div>
-          </Card>
-
-          {/* Fill Mode Indicator */}
-          <Card className="p-3 bg-card border-border">
+        <div className="col-span-2 flex flex-col gap-3">
+          {/* Status Bar + Fill Mode - compact row */}
+          <Card className="p-3 bg-card border-border flex-shrink-0">
             <div className="flex items-center justify-between">
-              <span className="text-lg font-semibold text-foreground">Modus:</span>
-              {fillMode !== "idle" && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/20 rounded border border-primary">
-                  <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
-                  <span className="font-semibold text-foreground text-base uppercase">
-                    {fillMode === "coarse" ? "Grovfylling" : "Finfylling"}
-                  </span>
-                </div>
-              )}
-              {fillMode === "idle" && (
-                <div className="px-3 py-1.5 bg-muted rounded">
-                  <span className="text-muted-foreground text-base">Inaktiv</span>
-                </div>
-              )}
+              <div className="flex items-center gap-4">
+                <StatusIndicator
+                  status={pumpStatus}
+                  label={`Pumpe: ${pumpStatus === "running" ? "Kjører" : "Av"}`}
+                />
+                <StatusIndicator
+                  status={valveStatus}
+                  label={`Ventil: ${valveStatus === "running" ? "Åpen" : "Lukket"}`}
+                />
+                <StatusIndicator
+                  status={damperStatus}
+                  label={`Spjeld: ${damperStatus === "running" ? "Åpen" : "Lukket"}`}
+                />
+              </div>
+              <div>
+                {fillMode !== "idle" ? (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/20 rounded border border-primary">
+                    <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
+                    <span className="font-semibold text-foreground text-base uppercase">
+                      {fillMode === "coarse" ? "Grovfylling" : "Finfylling"}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="px-3 py-1.5 bg-muted rounded">
+                    <span className="text-muted-foreground text-base">Inaktiv</span>
+                  </div>
+                )}
+              </div>
             </div>
           </Card>
 
-          {/* Tank Controls */}
-          <Card className={`p-3 bg-card border-border ${isSiloRunning ? 'opacity-50' : ''}`}>
-            <h2 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2">
-              <Droplets className="w-5 h-5 text-primary" />
-              Tank
-              {isSiloRunning && <span className="text-sm text-muted-foreground ml-2">(Silo kjører)</span>}
-            </h2>
-            <div className="grid grid-cols-2 gap-3">
-              <ControlButton
-                icon={Play}
-                label="Start"
-                status={isTankRunning ? "running" : "idle"}
-                onClick={startFillingFromTank}
-                disabled={isTankRunning || isSiloRunning}
-              />
+          {/* Tank & Silo Controls - take up available space */}
+          <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
+            {/* Tank */}
+            <Card className={`p-4 bg-card border-border flex flex-col ${isSiloRunning ? 'opacity-50' : ''}`}>
+              <h2 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2 flex-shrink-0">
+                <Droplets className="w-5 h-5 text-primary" />
+                Tank
+                {isSiloRunning && <span className="text-sm text-muted-foreground ml-2">(Silo kjører)</span>}
+              </h2>
+              <div className="grid grid-cols-2 gap-3 flex-1">
+                <ControlButton
+                  icon={Play}
+                  label="Start"
+                  status={isTankRunning ? "running" : "idle"}
+                  onClick={startFillingFromTank}
+                  disabled={isTankRunning || isSiloRunning}
+                />
+                <ControlButton
+                  icon={Square}
+                  label="Stopp"
+                  status={isTankRunning ? "stopped" : "idle"}
+                  onClick={handleStopFilling}
+                  disabled={!isTankRunning}
+                  className="bg-destructive/20 border-destructive"
+                />
+              </div>
+            </Card>
+
+            {/* Silo */}
+            <Card className={`p-4 bg-card border-border flex flex-col ${isTankRunning ? 'opacity-50' : ''}`}>
+              <h2 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2 flex-shrink-0">
+                <Package className="w-5 h-5 text-primary" />
+                Silo
+                {isTankRunning && <span className="text-sm text-muted-foreground ml-2">(Tank kjører)</span>}
+              </h2>
+              <div className="grid grid-cols-2 gap-3 flex-1">
+                <ControlButton
+                  icon={Play}
+                  label="Start"
+                  status={isSiloRunning ? "running" : "idle"}
+                  onClick={startFillingFromSilo}
+                  disabled={isSiloRunning || isTankRunning}
+                />
+                <ControlButton
+                  icon={Square}
+                  label="Stopp"
+                  status={isSiloRunning ? "stopped" : "idle"}
+                  onClick={handleStopFilling}
+                  disabled={!isSiloRunning}
+                  className="bg-destructive/20 border-destructive"
+                />
+              </div>
+            </Card>
+          </div>
+
+          {/* Bottom row: Emergency Stop + Reset */}
+          <div className="grid grid-cols-2 gap-3 flex-shrink-0">
+            <Card className="p-3 bg-destructive/20 border-destructive">
               <ControlButton
                 icon={Square}
-                label="Stopp"
-                status={isTankRunning ? "stopped" : "idle"}
-                onClick={handleStopFilling}
-                disabled={!isTankRunning}
-                className="bg-destructive/20 border-destructive"
+                label="NØDSTOPP"
+                status={fillMode !== "idle" ? "stopped" : "idle"}
+                onClick={handleEmergencyStop}
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive h-20"
               />
-            </div>
-          </Card>
-
-          {/* Silo Controls */}
-          <Card className={`p-3 bg-card border-border ${isTankRunning ? 'opacity-50' : ''}`}>
-            <h2 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2">
-              <Package className="w-5 h-5 text-primary" />
-              Silo
-              {isTankRunning && <span className="text-sm text-muted-foreground ml-2">(Tank kjører)</span>}
-            </h2>
-            <div className="grid grid-cols-2 gap-3">
+            </Card>
+            <Card className="p-3 bg-card border-border">
               <ControlButton
-                icon={Play}
-                label="Start"
-                status={isSiloRunning ? "running" : "idle"}
-                onClick={startFillingFromSilo}
-                disabled={isSiloRunning || isTankRunning}
+                icon={RefreshCw}
+                label="Nullstill"
+                status="idle"
+                onClick={resetFilling}
+                className="bg-secondary hover:bg-secondary/80 h-20"
               />
-              <ControlButton
-                icon={Square}
-                label="Stopp"
-                status={isSiloRunning ? "stopped" : "idle"}
-                onClick={handleStopFilling}
-                disabled={!isSiloRunning}
-                className="bg-destructive/20 border-destructive"
-              />
-            </div>
-          </Card>
-
-          {/* Emergency Stop */}
-          <Card className="p-3 bg-destructive/20 border-destructive">
-            <ControlButton
-              icon={Square}
-              label="NØDSTOPP"
-              status={fillMode !== "idle" ? "stopped" : "idle"}
-              onClick={handleEmergencyStop}
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive"
-            />
-          </Card>
+            </Card>
+          </div>
         </div>
 
         {/* Right Panel - IBC Visualization */}
-        <div className="col-span-1 space-y-3">
-          <IBCVisualization
-            currentWeight={currentWeight}
-            targetWeight={totalTarget}
-            maxCapacity={totalTarget}
-            tankWeight={tankWeight}
-            siloWeight={siloWeight}
-          />
-          
-          {/* Reset Button - Full width */}
-          <Card className="p-3 bg-card border-border">
-            <ControlButton
-              icon={RefreshCw}
-              label="Nullstill"
-              status="idle"
-              onClick={resetFilling}
-              className="bg-secondary hover:bg-secondary/80 h-32"
+        <div className="col-span-1 flex flex-col gap-3">
+          <div className="flex-1 min-h-0">
+            <IBCVisualization
+              currentWeight={currentWeight}
+              targetWeight={totalTarget}
+              maxCapacity={totalTarget}
+              tankWeight={tankWeight}
+              siloWeight={siloWeight}
             />
-          </Card>
+          </div>
           
           {/* Warnings */}
           {tankTemp > 30 && (
-            <Card className="p-3 bg-status-warning/20 border-status-warning">
+            <Card className="p-3 bg-status-warning/20 border-status-warning flex-shrink-0">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-status-warning" />
                 <div className="text-base text-foreground font-semibold">Temp advarsel</div>
