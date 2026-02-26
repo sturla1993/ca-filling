@@ -32,7 +32,7 @@ export const ControlButton = ({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "flex flex-col items-center justify-center h-24 w-full gap-2 border-2 transition-all",
+        "flex flex-col items-center justify-center h-full min-h-[5rem] w-full gap-2 border-2 transition-all text-lg",
         statusColors[status],
         active && "ring-2 ring-primary",
         disabled && "opacity-50 cursor-not-allowed",
