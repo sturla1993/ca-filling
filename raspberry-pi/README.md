@@ -6,14 +6,15 @@
 | Komponent | Modell | Ca. pris |
 |-----------|--------|----------|
 | Relemodul | Waveshare RPi Relay Board (B) 8-kanal | 300 kr |
-| ADC for 4-20mA | NCD 4-Channel 4-20mA Current Loop Receiver (ADS1115) | 600 kr |
+| Vektindikator | Kern med KUP (RS-232) | (eksisterende) |
+| USB-RS232 adapter | USB til RS-232 kabel (evt. Kern KUP-kabel) | 100 kr |
 | Temperatursensor | DS18B20 vannbestandig probe | 50 kr |
 | Pull-up motstand | 4.7kΩ for DS18B20 | 5 kr |
 | Kabler | Jumper-kabler female-female 40-pack | 50 kr |
 | Strømforsyning | 5V 3A USB-C for Pi 5 | 150 kr |
 | SD-kort | 32GB microSD | 100 kr |
 
-**Totalt: ~1250 kr** (ekskl. Raspberry Pi 5)
+**Totalt: ~750 kr** (ekskl. Raspberry Pi 5 og Kern vektindikator)
 
 ---
 
@@ -24,37 +25,38 @@
                     ┌─────────────────────────────────────┐
                     │  3.3V (1) ●──────┐                  │
                     │   5V  (2) ●      │                  │
-                    │  SDA (3) ●───────┼──► I2C Data      │
+                    │          (3) ●   │                  │
                     │   5V  (4) ●      │                  │
-                    │  SCL (5) ●───────┼──► I2C Clock     │
+                    │          (5) ●   │                  │
                     │  GND (6) ●───────┼──► GND           │
                     │ GPIO4(7) ●───────┼──► DS18B20 Data  │
                     │         ...      │                  │
+                    │  USB Port ●──────┼──► Kern RS-232   │
                     └─────────────────────────────────────┘
                                        │
-        ┌──────────────────────────────┴──────────────────────────────┐
-        │                              │                              │
-        ▼                              ▼                              ▼
+         ┌─────────────────────────────┴──────────────────────────────┐
+         │                              │                             │
+         ▼                              ▼                             ▼
 ┌───────────────────┐      ┌───────────────────┐      ┌───────────────────┐
-│ WAVESHARE RELAY   │      │ ADS1115 4-20mA    │      │ DS18B20           │
-│ BOARD (B)         │      │ ADC MODUL         │      │ TEMP SENSOR       │
+│ WAVESHARE RELAY   │      │ KERN VEKT         │      │ DS18B20           │
+│ BOARD (B)         │      │ (RS-232/USB)      │      │ TEMP SENSOR       │
 ├───────────────────┤      ├───────────────────┤      ├───────────────────┤
-│ I2C Adresse: 0x20 │      │ I2C Adresse: 0x48 │      │ 1-Wire på GPIO4   │
-│                   │      │                   │      │                   │
-│ Relay 1 → Pumpe   │      │ CH0 → Veiecelle   │      │ VCC → 3.3V        │
-│ Relay 2 → Ventil  │      │     (4-20mA)      │      │ GND → GND         │
-│ Relay 3 → Spjeld  │      │                   │      │ DATA → GPIO4      │
-│                   │      │                   │      │ + 4.7kΩ pull-up   │
+│ GPIO direkte      │      │ USB → /dev/ttyUSB0│      │ 1-Wire på GPIO4   │
+│                   │      │ 9600 baud, 8N1    │      │                   │
+│ Relay 1 → Pumpe   │      │                   │      │ VCC → 3.3V        │
+│ Relay 2 → Ventil  │      │ KUP-kabel eller   │      │ GND → GND         │
+│ Relay 3 → Finvent.│      │ USB-RS232 adapter  │      │ DATA → GPIO4      │
+│ Relay 4 → Spjeld  │      │                   │      │ + 4.7kΩ pull-up   │
 └───────────────────┘      └───────────────────┘      └───────────────────┘
-        │                              │
-        ▼                              ▼
-┌───────────────────┐      ┌───────────────────┐
-│ TIL UTSTYR        │      │ FRA VEIECELLE     │
-├───────────────────┤      ├───────────────────┤
-│ Pumpe: 230V/24V   │      │ + → CH0+          │
-│ Ventil: 24V       │      │ - → CH0-          │
-│ Spjeld: 24V       │      │ (4-20mA signal)   │
-└───────────────────┘      └───────────────────┘
+         │
+         ▼
+┌───────────────────┐
+│ TIL UTSTYR        │
+├───────────────────┤
+│ Pumpe: 230V/24V   │
+│ Ventil: 24V       │
+│ Spjeld: 24V       │
+└───────────────────┘
 ```
 
 ---
@@ -72,10 +74,9 @@
 sudo apt update && sudo apt upgrade -y
 ```
 
-### 3. Aktiver I2C og 1-Wire
+### 3. Aktiver 1-Wire
 ```bash
 sudo raspi-config
-# Interface Options → I2C → Enable
 # Interface Options → 1-Wire → Enable
 sudo reboot
 ```
@@ -87,7 +88,7 @@ cd ~
 mkdir ibc-control && cd ibc-control
 python3 -m venv venv
 source venv/bin/activate
-pip install flask flask-socketio flask-cors smbus2 RPi.GPIO
+pip install flask flask-socketio flask-cors pyserial lgpio
 ```
 
 ### 5. Kopier backend-filer
@@ -126,12 +127,20 @@ sudo systemctl start ibc-control
 
 ---
 
-## Test I2C-enheter
+## Test Kern vekt (RS-232)
 ```bash
-sudo i2cdetect -y 1
-# Skal vise:
-# 0x20 - Waveshare Relay Board
-# 0x48 - ADS1115 ADC
+# Sjekk at USB-RS232 adapteren er tilkoblet
+ls /dev/ttyUSB*
+# Skal vise /dev/ttyUSB0
+
+# Test manuell avlesning
+python3 -c "
+import serial
+ser = serial.Serial('/dev/ttyUSB0', 9600, timeout=1)
+ser.write(b'w\r\n')
+print(ser.readline().decode('ascii', errors='ignore').strip())
+ser.close()
+"
 ```
 
 ## Test DS18B20
@@ -140,4 +149,5 @@ ls /sys/bus/w1/devices/
 # Skal vise 28-xxxxxxxxxxxx (sensor-ID)
 cat /sys/bus/w1/devices/28-*/temperature
 # Viser temperatur i milligrader (22500 = 22.5°C)
+```
 ```

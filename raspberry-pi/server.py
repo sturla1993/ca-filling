@@ -9,13 +9,13 @@ import glob
 import time
 import json
 import threading
+import serial
 from flask import Flask, jsonify, request
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 
 # Sjekk om vi kjører på Pi eller i utviklingsmiljø
 try:
-    import smbus2
     import lgpio
     ON_RASPBERRY_PI = True
 except ImportError:
@@ -46,8 +46,10 @@ GPIO_RELAY_VALVE = 6       # CH2 - Ventil (grov)
 GPIO_RELAY_FINE_VALVE = 19 # CH3 - Ventil (fin)
 GPIO_RELAY_DAMPER = 13     # CH4 - Spjeld
 
-# I2C-adresser
-ADS1115_I2C_ADDR = 0x48  # ADS1115 ADC
+# Kern vekt via RS-232/USB
+KERN_SERIAL_PORT = os.environ.get('KERN_PORT', '/dev/ttyUSB0')
+KERN_BAUD_RATE = int(os.environ.get('KERN_BAUD', '9600'))
+KERN_TIMEOUT = 1  # sekunder
 
 # Relay-mapping (relay nummer -> funksjon)
 RELAY_PUMP = 1           # Pumpe (tank)
@@ -63,10 +65,7 @@ RELAY_GPIO_MAP = {
     RELAY_DAMPER: GPIO_RELAY_DAMPER
 }
 
-# Veiecelle konfigurasjon (4-20mA)
-WEIGHT_MIN_MA = 4.0      # mA ved 0 kg
-WEIGHT_MAX_MA = 20.0     # mA ved maks vekt
-WEIGHT_MAX_KG = 1000.0   # Maks kapasitet i kg
+WEIGHT_MAX_KG = 1000.0   # Maks kapasitet i kg (for simulering)
 
 # DS18B20 temperatursensor
 DS18B20_BASE_DIR = '/sys/bus/w1/devices/'
@@ -141,55 +140,67 @@ class RelayController:
 
 
 class WeightSensor:
-    """Leser industriell veiecelle via ADS1115 (4-20mA)"""
+    """Leser vekt fra Kern vektindikator via RS-232 (seriell/USB)"""
     
     def __init__(self):
-        self.bus = None
+        self.serial_conn = None
+        self._last_weight = 0.0
+        self._simulated_weight = 0.0
+        
         if ON_RASPBERRY_PI and not SIMULATE_WEIGHT:
             try:
-                self.bus = smbus2.SMBus(1)
-                print("✅ Vektsensor (ADC) tilkoblet")
+                self.serial_conn = serial.Serial(
+                    port=KERN_SERIAL_PORT,
+                    baudrate=KERN_BAUD_RATE,
+                    bytesize=serial.EIGHTBITS,
+                    parity=serial.PARITY_NONE,
+                    stopbits=serial.STOPBITS_ONE,
+                    timeout=KERN_TIMEOUT
+                )
+                print(f"✅ Kern vekt tilkoblet på {KERN_SERIAL_PORT} ({KERN_BAUD_RATE} baud)")
             except Exception as e:
-                print(f"❌ Kunne ikke koble til vektsensor: {e}")
-        self._simulated_weight = 0.0
+                print(f"❌ Kunne ikke koble til Kern vekt: {e}")
     
     def read_weight(self) -> float:
-        """Les vekt i kg fra veiecelle"""
-        if not self.bus or SIMULATE_WEIGHT:
+        """Les vekt i kg fra Kern vektindikator via RS-232"""
+        if not self.serial_conn or SIMULATE_WEIGHT:
             return self._simulated_weight
         
         try:
-            # Les fra ADS1115 kanal 0
-            config = 0xC183
-            self.bus.write_i2c_block_data(ADS1115_I2C_ADDR, 0x01, 
-                                          [(config >> 8) & 0xFF, config & 0xFF])
-            time.sleep(0.01)
+            # Send Kern-kommando for å be om vekt (standard: 'w' eller 's')
+            self.serial_conn.write(b'w\r\n')
+            time.sleep(0.05)
             
-            data = self.bus.read_i2c_block_data(ADS1115_I2C_ADDR, 0x00, 2)
-            raw = (data[0] << 8) | data[1]
-            if raw > 32767:
-                raw -= 65536
+            response = self.serial_conn.readline().decode('ascii', errors='ignore').strip()
             
-            voltage = (raw / 32767.0) * 4.096
-            current_ma = (voltage / 0.250)
+            if response:
+                # Parse Kern-respons, typisk format: "S S     123.45 kg"
+                # Fjern bokstaver og enheter, behold tall
+                weight_str = ''
+                for part in response.split():
+                    try:
+                        weight_str = part
+                        val = float(part)
+                        self._last_weight = val
+                        return val
+                    except ValueError:
+                        continue
             
-            if current_ma < WEIGHT_MIN_MA:
-                return 0.0
-            
-            weight_fraction = (current_ma - WEIGHT_MIN_MA) / (WEIGHT_MAX_MA - WEIGHT_MIN_MA)
-            weight_kg = weight_fraction * WEIGHT_MAX_KG
-            
-            return max(0.0, min(WEIGHT_MAX_KG, weight_kg))
+            return self._last_weight
             
         except Exception as e:
-            print(f"❌ Vekt-lesefeil: {e}")
-            return 0.0
+            print(f"❌ Kern vekt-lesefeil: {e}")
+            return self._last_weight
     
     def simulate_add_weight(self, kg: float):
         self._simulated_weight = min(WEIGHT_MAX_KG, self._simulated_weight + kg)
     
     def simulate_reset(self):
         self._simulated_weight = 0.0
+    
+    def __del__(self):
+        if self.serial_conn and self.serial_conn.is_open:
+            self.serial_conn.close()
 
 
 class TemperatureSensor:
