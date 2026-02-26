@@ -8,13 +8,11 @@
 | Relemodul | Waveshare RPi Relay Board (B) 8-kanal | 300 kr |
 | Vektindikator | Kern med KUP (RS-232) | (eksisterende) |
 | USB-RS232 adapter | USB til RS-232 kabel (evt. Kern KUP-kabel) | 100 kr |
-| Temperatursensor | DS18B20 vannbestandig probe | 50 kr |
-| Pull-up motstand | 4.7kΩ for DS18B20 | 5 kr |
 | Kabler | Jumper-kabler female-female 40-pack | 50 kr |
 | Strømforsyning | 5V 3A USB-C for Pi 5 | 150 kr |
 | SD-kort | 32GB microSD | 100 kr |
 
-**Totalt: ~750 kr** (ekskl. Raspberry Pi 5 og Kern vektindikator)
+**Totalt: ~700 kr** (ekskl. Raspberry Pi 5 og Kern vektindikator)
 
 ---
 
@@ -23,31 +21,27 @@
 ```
                     RASPBERRY PI 5
                     ┌─────────────────────────────────────┐
-                    │  3.3V (1) ●──────┐                  │
-                    │   5V  (2) ●      │                  │
-                    │          (3) ●   │                  │
-                    │   5V  (4) ●      │                  │
-                    │          (5) ●   │                  │
+                    │   5V  (2) ●                         │
+                    │   5V  (4) ●                         │
                     │  GND (6) ●───────┼──► GND           │
-                    │ GPIO4(7) ●───────┼──► DS18B20 Data  │
                     │         ...      │                  │
                     │  USB Port ●──────┼──► Kern RS-232   │
                     └─────────────────────────────────────┘
                                        │
-         ┌─────────────────────────────┴──────────────────────────────┐
-         │                              │                             │
-         ▼                              ▼                             ▼
-┌───────────────────┐      ┌───────────────────┐      ┌───────────────────┐
-│ WAVESHARE RELAY   │      │ KERN VEKT         │      │ DS18B20           │
-│ BOARD (B)         │      │ (RS-232/USB)      │      │ TEMP SENSOR       │
-├───────────────────┤      ├───────────────────┤      ├───────────────────┤
-│ GPIO direkte      │      │ USB → /dev/ttyUSB0│      │ 1-Wire på GPIO4   │
-│                   │      │ 9600 baud, 8N1    │      │                   │
-│ Relay 1 → Pumpe   │      │                   │      │ VCC → 3.3V        │
-│ Relay 2 → Ventil  │      │ KUP-kabel eller   │      │ GND → GND         │
-│ Relay 3 → Finvent.│      │ USB-RS232 adapter  │      │ DATA → GPIO4      │
-│ Relay 4 → Spjeld  │      │                   │      │ + 4.7kΩ pull-up   │
-└───────────────────┘      └───────────────────┘      └───────────────────┘
+         ┌─────────────────────────────┴──────────────────┐
+         │                              │                  
+         ▼                              ▼                  
+┌───────────────────┐      ┌───────────────────┐
+│ WAVESHARE RELAY   │      │ KERN VEKT         │
+│ BOARD (B)         │      │ (RS-232/USB)      │
+├───────────────────┤      ├───────────────────┤
+│ GPIO direkte      │      │ USB → /dev/ttyUSB0│
+│                   │      │ 9600 baud, 8N1    │
+│ Relay 1 → Pumpe   │      │                   │
+│ Relay 2 → Ventil  │      │ KUP-kabel eller   │
+│ Relay 3 → Finvent.│      │ USB-RS232 adapter  │
+│ Relay 4 → Spjeld  │      │                   │
+└───────────────────┘      └───────────────────┘
          │
          ▼
 ┌───────────────────┐
@@ -74,14 +68,7 @@
 sudo apt update && sudo apt upgrade -y
 ```
 
-### 3. Aktiver 1-Wire
-```bash
-sudo raspi-config
-# Interface Options → 1-Wire → Enable
-sudo reboot
-```
-
-### 4. Installer Python-avhengigheter
+### 3. Installer Python-avhengigheter
 ```bash
 sudo apt install python3-pip python3-venv -y
 cd ~
@@ -143,11 +130,3 @@ ser.close()
 "
 ```
 
-## Test DS18B20
-```bash
-ls /sys/bus/w1/devices/
-# Skal vise 28-xxxxxxxxxxxx (sensor-ID)
-cat /sys/bus/w1/devices/28-*/temperature
-# Viser temperatur i milligrader (22500 = 22.5°C)
-```
-```

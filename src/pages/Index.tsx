@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { 
   Droplets, 
-  Thermometer,
   Play,
   Square,
   AlertCircle,
@@ -34,7 +33,6 @@ type FillSource = "tank" | "silo" | null;
 
 const Index = () => {
   // State management
-  const [tankTemp, setTankTemp] = useState(22.5);
   const [tankTarget, setTankTarget] = useState(500);
   const [siloTarget, setSiloTarget] = useState(500);
   const [tankFineThreshold, setTankFineThreshold] = useState(450);
@@ -60,8 +58,6 @@ const Index = () => {
   // Pi-tilkobling - oppdater alltid når vi får data fra Pi
   const handleSensorData = useCallback((data: SensorData) => {
     // Alltid oppdater fra Pi-data når vi mottar det
-    setTankTemp(data.temperature);
-    
     const pumpOn = data.relays.pump;
     const valveOn = data.relays.valve;
     const fineValveOn = data.relays.fine_valve;
@@ -119,15 +115,6 @@ const Index = () => {
   const totalTarget = tankTarget + siloTarget;
   const currentWeight = tankWeight + siloWeight;
 
-  // Simulering av temperatur (kun når ikke koblet til Pi)
-  useEffect(() => {
-    if (useSimulation) {
-      const interval = setInterval(() => {
-        setTankTemp(prev => prev + (Math.random() - 0.5) * 0.2);
-      }, 2000);
-      return () => clearInterval(interval);
-    }
-  }, [useSimulation]);
 
   // Simulering av fylleprosess (kun når ikke koblet til Pi)
   useEffect(() => {
@@ -393,10 +380,6 @@ const Index = () => {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Thermometer className="w-5 h-5 text-primary" />
-            <span className="font-mono text-lg font-bold text-foreground">{tankTemp.toFixed(1)}°C</span>
-          </div>
           <SettingsDialog
             tankTarget={tankTarget}
             siloTarget={siloTarget}
@@ -540,15 +523,6 @@ const Index = () => {
             />
           </div>
           
-          {/* Warnings */}
-          {tankTemp > 30 && (
-            <Card className="p-3 bg-status-warning/20 border-status-warning flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-status-warning" />
-                <div className="text-base text-foreground font-semibold">Temp advarsel</div>
-              </div>
-            </Card>
-          )}
         </div>
       </div>
     </div>
