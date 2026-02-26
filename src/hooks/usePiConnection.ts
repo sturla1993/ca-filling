@@ -3,7 +3,6 @@ import { toast } from 'sonner';
 
 export interface SensorData {
   weight: number;
-  temperature: number;
   relays: {
     pump: boolean;
     valve: boolean;
@@ -66,7 +65,6 @@ export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
       
       const sensorData: SensorData = {
         weight: data.weight,
-        temperature: data.temperature,
         relays: data.relays,
         state: data.state
       };

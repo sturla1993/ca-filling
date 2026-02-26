@@ -5,7 +5,6 @@ Flask + WebSocket server for relékontroll og sensoravlesning
 """
 
 import os
-import glob
 import time
 import json
 import threading
@@ -66,9 +65,6 @@ RELAY_GPIO_MAP = {
 }
 
 WEIGHT_MAX_KG = 1000.0   # Maks kapasitet i kg (for simulering)
-
-# DS18B20 temperatursensor
-DS18B20_BASE_DIR = '/sys/bus/w1/devices/'
 
 # ============== HARDWARE KLASSER ==============
 
@@ -203,41 +199,10 @@ class WeightSensor:
             self.serial_conn.close()
 
 
-class TemperatureSensor:
-    """Leser DS18B20 temperatursensor via 1-Wire"""
-    
-    def __init__(self):
-        self.device_file = None
-        if ON_RASPBERRY_PI:
-            self._find_sensor()
-    
-    def _find_sensor(self):
-        try:
-            devices = glob.glob(DS18B20_BASE_DIR + '28*')
-            if devices:
-                self.device_file = devices[0] + '/temperature'
-                print(f"✅ DS18B20 funnet: {devices[0]}")
-        except Exception as e:
-            print(f"❌ Kunne ikke finne DS18B20: {e}")
-    
-    def read_temperature(self) -> float:
-        if not ON_RASPBERRY_PI or not self.device_file:
-            return 22.0 + (time.time() % 10) * 0.1
-        
-        try:
-            with open(self.device_file, 'r') as f:
-                temp_raw = f.read().strip()
-                return float(temp_raw) / 1000.0
-        except Exception as e:
-            print(f"❌ Temp-lesefeil: {e}")
-            return 0.0
-
-
 # ============== GLOBALE OBJEKTER ==============
 
 relay_controller = RelayController()
 weight_sensor = WeightSensor()
-temp_sensor = TemperatureSensor()
 
 # Tilstand
 system_state = {
@@ -321,7 +286,6 @@ def sensor_broadcast_loop():
         data = {
             'type': 'sensor_update',
             'weight': weight_sensor.read_weight(),
-            'temperature': temp_sensor.read_temperature(),
             'relays': relay_controller.get_states(),
             'state': system_state
         }
@@ -336,7 +300,6 @@ def get_status():
     """Hent systemstatus"""
     return jsonify({
         'weight': weight_sensor.read_weight(),
-        'temperature': temp_sensor.read_temperature(),
         'relays': relay_controller.get_states(),
         'state': system_state,
         'on_raspberry_pi': ON_RASPBERRY_PI
