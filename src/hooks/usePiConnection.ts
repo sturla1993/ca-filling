@@ -7,6 +7,7 @@ export interface SensorData {
   relays: {
     pump: boolean;
     valve: boolean;
+    fine_valve: boolean;
     damper: boolean;
   };
   state: {
@@ -128,6 +129,7 @@ export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
   const updateSettings = useCallback(async (settings: {
     tank_target?: number;
     silo_target?: number;
+    tank_fine_threshold?: number;
     tank_overrun?: number;
     silo_overrun?: number;
   }) => {
