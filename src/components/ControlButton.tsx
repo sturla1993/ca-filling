@@ -41,7 +41,7 @@ export const ControlButton = ({
       variant="outline"
     >
       <Icon className="w-8 h-8" />
-      <span className="text-base font-semibold">{label}</span>
+      <span className="text-xl font-bold">{label}</span>
     </Button>
   );
 };

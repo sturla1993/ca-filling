@@ -449,7 +449,7 @@ const Index = () => {
             >
               <Droplets className={`w-12 h-12 ${isTankRunning ? 'text-status-running' : 'text-primary'}`} />
               <div className="flex flex-col items-start">
-                <span className="text-3xl font-bold">{isTankRunning ? 'STOPP VANN' : 'START VANN'}</span>
+                <span className="text-4xl font-bold">{isTankRunning ? 'STOPP VANN' : 'START VANN'}</span>
                 <span className={`text-sm font-semibold ${
                   isTankRunning ? 'text-status-running' : 'text-muted-foreground'
                 }`}>
@@ -475,7 +475,7 @@ const Index = () => {
             >
               <Package className={`w-12 h-12 ${isSiloRunning ? 'text-status-running' : 'text-primary'}`} />
               <div className="flex flex-col items-start">
-                <span className="text-3xl font-bold">{isSiloRunning ? 'STOPP TØRRSTOFF' : 'START TØRRSTOFF'}</span>
+                <span className="text-4xl font-bold">{isSiloRunning ? 'STOPP TØRRSTOFF' : 'START TØRRSTOFF'}</span>
                 <span className={`text-sm font-semibold ${
                   isSiloRunning ? 'text-status-running' : 'text-muted-foreground'
                 }`}>
@@ -494,6 +494,7 @@ const Index = () => {
               <ControlButton
                 icon={Square}
                 label="NØDSTOPP"
+
                 status={fillMode !== "idle" ? "stopped" : "idle"}
                 onClick={handleEmergencyStop}
                 className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive h-28"
@@ -502,7 +503,7 @@ const Index = () => {
             <Card className="p-3 bg-card border-border">
               <ControlButton
                 icon={RefreshCw}
-                label="Nullstill"
+                label="NULLSTILL"
                 status="idle"
                 onClick={resetFilling}
                 className="bg-secondary hover:bg-secondary/80 h-28"
