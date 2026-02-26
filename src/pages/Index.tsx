@@ -437,59 +437,59 @@ const Index = () => {
             </div>
           </Card>
 
-          {/* Tank & Silo Controls - take up available space */}
+          {/* Tank & Silo - large square buttons */}
           <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
             {/* Tank */}
-            <Card className={`p-4 bg-card border-border flex flex-col ${isSiloRunning ? 'opacity-50' : ''}`}>
-              <h2 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2 flex-shrink-0">
-                <Droplets className="w-5 h-5 text-primary" />
-                Tank
-                {isSiloRunning && <span className="text-sm text-muted-foreground ml-2">(Silo kjører)</span>}
-              </h2>
-              <div className="grid grid-cols-2 gap-3 flex-1">
-                <ControlButton
-                  icon={Play}
-                  label="Start"
-                  status={isTankRunning ? "running" : "idle"}
-                  onClick={startFillingFromTank}
-                  disabled={isTankRunning || isSiloRunning}
-                />
-                <ControlButton
-                  icon={Square}
-                  label="Stopp"
-                  status={isTankRunning ? "stopped" : "idle"}
-                  onClick={handleStopFilling}
-                  disabled={!isTankRunning}
-                  className="bg-destructive/20 border-destructive"
-                />
-              </div>
-            </Card>
+            <button
+              onClick={isTankRunning ? handleStopFilling : startFillingFromTank}
+              disabled={isSiloRunning}
+              className={`relative rounded-lg border-2 transition-all flex flex-col items-center justify-center gap-3 text-foreground ${
+                isSiloRunning 
+                  ? 'opacity-40 cursor-not-allowed border-border bg-card' 
+                  : isTankRunning
+                    ? 'border-status-running bg-status-running/20 animate-pulse'
+                    : 'border-border bg-card hover:border-primary hover:bg-primary/10 active:scale-[0.98]'
+              }`}
+            >
+              <Droplets className={`w-12 h-12 ${isTankRunning ? 'text-status-running' : 'text-primary'}`} />
+              <span className="text-2xl font-bold">Tank</span>
+              <span className={`text-sm font-semibold px-3 py-1 rounded ${
+                isTankRunning 
+                  ? 'bg-status-running/30 text-status-running' 
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {isTankRunning ? '● Kjører — trykk for stopp' : 'Trykk for start'}
+              </span>
+              {isSiloRunning && (
+                <span className="text-xs text-muted-foreground">(Silo kjører)</span>
+              )}
+            </button>
 
             {/* Silo */}
-            <Card className={`p-4 bg-card border-border flex flex-col ${isTankRunning ? 'opacity-50' : ''}`}>
-              <h2 className="text-lg font-semibold mb-3 text-foreground flex items-center gap-2 flex-shrink-0">
-                <Package className="w-5 h-5 text-primary" />
-                Silo
-                {isTankRunning && <span className="text-sm text-muted-foreground ml-2">(Tank kjører)</span>}
-              </h2>
-              <div className="grid grid-cols-2 gap-3 flex-1">
-                <ControlButton
-                  icon={Play}
-                  label="Start"
-                  status={isSiloRunning ? "running" : "idle"}
-                  onClick={startFillingFromSilo}
-                  disabled={isSiloRunning || isTankRunning}
-                />
-                <ControlButton
-                  icon={Square}
-                  label="Stopp"
-                  status={isSiloRunning ? "stopped" : "idle"}
-                  onClick={handleStopFilling}
-                  disabled={!isSiloRunning}
-                  className="bg-destructive/20 border-destructive"
-                />
-              </div>
-            </Card>
+            <button
+              onClick={isSiloRunning ? handleStopFilling : startFillingFromSilo}
+              disabled={isTankRunning}
+              className={`relative rounded-lg border-2 transition-all flex flex-col items-center justify-center gap-3 text-foreground ${
+                isTankRunning 
+                  ? 'opacity-40 cursor-not-allowed border-border bg-card' 
+                  : isSiloRunning
+                    ? 'border-status-running bg-status-running/20 animate-pulse'
+                    : 'border-border bg-card hover:border-primary hover:bg-primary/10 active:scale-[0.98]'
+              }`}
+            >
+              <Package className={`w-12 h-12 ${isSiloRunning ? 'text-status-running' : 'text-primary'}`} />
+              <span className="text-2xl font-bold">Silo</span>
+              <span className={`text-sm font-semibold px-3 py-1 rounded ${
+                isSiloRunning 
+                  ? 'bg-status-running/30 text-status-running' 
+                  : 'bg-muted text-muted-foreground'
+              }`}>
+                {isSiloRunning ? '● Kjører — trykk for stopp' : 'Trykk for start'}
+              </span>
+              {isTankRunning && (
+                <span className="text-xs text-muted-foreground">(Tank kjører)</span>
+              )}
+            </button>
           </div>
 
           {/* Bottom row: Emergency Stop + Reset */}
