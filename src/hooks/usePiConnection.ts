@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { toast } from 'sonner';
 
 export interface SensorData {
   weight: number;
@@ -60,7 +59,6 @@ export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
         setIsConnected(true);
         setIsOnPi(data.on_raspberry_pi);
         onConnectionChangeRef.current?.(true);
-        toast.success('Koblet til Raspberry Pi');
       }
       
       const sensorData: SensorData = {
@@ -77,18 +75,13 @@ export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
         wasConnectedRef.current = false;
         setIsConnected(false);
         onConnectionChangeRef.current?.(false);
-        toast.error('Mistet tilkobling til Raspberry Pi');
       }
     }
   }, []);
 
   useEffect(() => {
-    // Initial fetch
     fetchStatus();
-    
-    // Poll every 200ms
     pollingRef.current = window.setInterval(fetchStatus, 200);
-    
     return () => {
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
@@ -100,27 +93,24 @@ export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
     try {
       const response = await fetch(`${PI_URL}/api/start-fill/${source}`, { method: 'POST' });
       if (!response.ok) throw new Error('Start fill failed');
-      toast.success(`Fylling startet fra ${source === 'tank' ? 'tank' : 'silo'}`);
     } catch (e) {
-      toast.error('Kunne ikke starte fylling');
+      console.error('Kunne ikke starte fylling', e);
     }
   }, []);
 
   const stopFill = useCallback(async () => {
     try {
       await fetch(`${PI_URL}/api/stop-fill`, { method: 'POST' });
-      toast.info('Fylling stoppet');
     } catch (e) {
-      toast.error('Kunne ikke stoppe fylling');
+      console.error('Kunne ikke stoppe fylling', e);
     }
   }, []);
 
   const reset = useCallback(async () => {
     try {
       await fetch(`${PI_URL}/api/reset`, { method: 'POST' });
-      toast.success('System nullstilt');
     } catch (e) {
-      toast.error('Kunne ikke nullstille');
+      console.error('Kunne ikke nullstille', e);
     }
   }, []);
 
@@ -166,3 +156,4 @@ export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
     simulateWeight
   };
 };
+
