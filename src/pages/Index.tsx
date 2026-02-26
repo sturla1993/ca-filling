@@ -24,7 +24,7 @@ import {
   Wifi,
   WifiOff
 } from "lucide-react";
-import { toast } from "sonner";
+
 import { usePiConnection, SensorData } from "@/hooks/usePiConnection";
 
 type FillMode = "idle" | "coarse" | "fine";
@@ -132,11 +132,11 @@ const Index = () => {
               setPumpStatus("idle");
               setValveStatus("idle");
               setFineValveStatus("running");
-              toast.info("Bytter til finfylling (ventil fin)");
+              
             }
             
             if (newWeight >= (tankTarget - tankOverrun)) {
-              toast.success(`Fylling fra tank fullført! Vekt: ${newWeight.toFixed(1)} kg`);
+              
               setLastTankFillResult({ weight: newWeight, target: tankTarget });
               stopFillingLocal();
               return newWeight;
@@ -149,7 +149,7 @@ const Index = () => {
             const newWeight = prev + fillRate;
             
             if (newWeight >= (siloTarget - siloOverrun)) {
-              toast.success(`Fylling fra silo fullført! Vekt: ${newWeight.toFixed(1)} kg`);
+              
               setLastSiloFillResult({ weight: newWeight, target: siloTarget });
               stopFillingLocal();
               return newWeight;
@@ -208,7 +208,7 @@ const Index = () => {
           setPumpStatus("running");
           setValveStatus("running");
         }
-        toast.success("Starter vannfylling");
+        
       }
     } else if (source === "silo") {
       if (isConnected) {
@@ -217,7 +217,7 @@ const Index = () => {
         setIsFillingFromTank(false);
         setFillMode("coarse");
         setDamperStatus("running");
-        toast.success("Starter tørrstofffylling");
+        
       }
     }
   };
@@ -225,7 +225,7 @@ const Index = () => {
   const startFillingFromTank = () => {
     // Sjekk om silo kjører - ikke tillat samtidig
     if (damperStatus === "running") {
-      toast.error("Kan ikke starte tank mens silo kjører");
+      
       return;
     }
     
@@ -241,7 +241,7 @@ const Index = () => {
   const startFillingFromSilo = () => {
     // Sjekk om tank kjører - ikke tillat samtidig
     if (pumpStatus === "running" || valveStatus === "running") {
-      toast.error("Kan ikke starte silo mens tank kjører");
+      
       return;
     }
     
@@ -278,7 +278,7 @@ const Index = () => {
       stopFill();
     } else {
       stopFillingLocal();
-      toast.info("Fylling stoppet");
+      
     }
   };
 
@@ -287,7 +287,7 @@ const Index = () => {
       emergencyStop();
     }
     stopFillingLocal();
-    toast.error("NØDSTOPP AKTIVERT", { duration: 5000 });
+    
   };
 
   const resetFilling = () => {
@@ -298,7 +298,7 @@ const Index = () => {
       setTankWeight(0);
       setSiloWeight(0);
       setIsFillingFromTank(false);
-      toast.success("Nullstilt");
+      
     }
   };
 
@@ -325,7 +325,7 @@ const Index = () => {
       });
     }
     
-    toast.success("Innstillinger lagret");
+    
   };
 
   // Sjekk om den andre kilden kjører
