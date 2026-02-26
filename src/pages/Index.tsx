@@ -437,13 +437,13 @@ const Index = () => {
             </div>
           </Card>
 
-          {/* Tank & Silo - large square buttons */}
-          <div className="grid grid-cols-2 gap-3 flex-1 min-h-0">
-            {/* Tank */}
+          {/* Vann & Tørrstoff - stacked vertically */}
+          <div className="flex flex-col gap-3 flex-1 min-h-0">
+            {/* Vann (Tank) */}
             <button
               onClick={isTankRunning ? handleStopFilling : startFillingFromTank}
               disabled={isSiloRunning}
-              className={`relative rounded-lg border-2 transition-all flex flex-col items-center justify-center gap-3 text-foreground ${
+              className={`relative rounded-lg border-2 transition-all flex items-center justify-center gap-4 text-foreground flex-1 ${
                 isSiloRunning 
                   ? 'opacity-40 cursor-not-allowed border-border bg-card' 
                   : isTankRunning
@@ -451,25 +451,25 @@ const Index = () => {
                     : 'border-border bg-card hover:border-primary hover:bg-primary/10 active:scale-[0.98]'
               }`}
             >
-              <Droplets className={`w-12 h-12 ${isTankRunning ? 'text-status-running' : 'text-primary'}`} />
-              <span className="text-2xl font-bold">Tank</span>
-              <span className={`text-sm font-semibold px-3 py-1 rounded ${
-                isTankRunning 
-                  ? 'bg-status-running/30 text-status-running' 
-                  : 'bg-muted text-muted-foreground'
-              }`}>
-                {isTankRunning ? '● Kjører — trykk for stopp' : 'Trykk for start'}
-              </span>
+              <Droplets className={`w-10 h-10 ${isTankRunning ? 'text-status-running' : 'text-primary'}`} />
+              <div className="flex flex-col items-start">
+                <span className="text-2xl font-bold">{isTankRunning ? 'STOPP VANN' : 'START VANN'}</span>
+                <span className={`text-sm font-semibold ${
+                  isTankRunning ? 'text-status-running' : 'text-muted-foreground'
+                }`}>
+                  {isTankRunning ? '● Kjører' : 'Inaktiv'}
+                </span>
+              </div>
               {isSiloRunning && (
-                <span className="text-xs text-muted-foreground">(Silo kjører)</span>
+                <span className="text-xs text-muted-foreground absolute bottom-2 right-3">(Tørrstoff kjører)</span>
               )}
             </button>
 
-            {/* Silo */}
+            {/* Tørrstoff (Silo) */}
             <button
               onClick={isSiloRunning ? handleStopFilling : startFillingFromSilo}
               disabled={isTankRunning}
-              className={`relative rounded-lg border-2 transition-all flex flex-col items-center justify-center gap-3 text-foreground ${
+              className={`relative rounded-lg border-2 transition-all flex items-center justify-center gap-4 text-foreground flex-1 ${
                 isTankRunning 
                   ? 'opacity-40 cursor-not-allowed border-border bg-card' 
                   : isSiloRunning
@@ -477,17 +477,17 @@ const Index = () => {
                     : 'border-border bg-card hover:border-primary hover:bg-primary/10 active:scale-[0.98]'
               }`}
             >
-              <Package className={`w-12 h-12 ${isSiloRunning ? 'text-status-running' : 'text-primary'}`} />
-              <span className="text-2xl font-bold">Silo</span>
-              <span className={`text-sm font-semibold px-3 py-1 rounded ${
-                isSiloRunning 
-                  ? 'bg-status-running/30 text-status-running' 
-                  : 'bg-muted text-muted-foreground'
-              }`}>
-                {isSiloRunning ? '● Kjører — trykk for stopp' : 'Trykk for start'}
-              </span>
+              <Package className={`w-10 h-10 ${isSiloRunning ? 'text-status-running' : 'text-primary'}`} />
+              <div className="flex flex-col items-start">
+                <span className="text-2xl font-bold">{isSiloRunning ? 'STOPP TØRRSTOFF' : 'START TØRRSTOFF'}</span>
+                <span className={`text-sm font-semibold ${
+                  isSiloRunning ? 'text-status-running' : 'text-muted-foreground'
+                }`}>
+                  {isSiloRunning ? '● Kjører' : 'Inaktiv'}
+                </span>
+              </div>
               {isTankRunning && (
-                <span className="text-xs text-muted-foreground">(Tank kjører)</span>
+                <span className="text-xs text-muted-foreground absolute bottom-2 right-3">(Vann kjører)</span>
               )}
             </button>
           </div>
