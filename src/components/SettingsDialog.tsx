@@ -31,9 +31,9 @@ export const SettingsDialog = ({ tankTarget, siloTarget, tankFineThreshold, tank
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <Settings className="w-4 h-4" />
-          <span className="text-xs">Innst.</span>
+        <Button variant="outline" className="gap-2 text-base font-bold px-4 py-2">
+          <Settings className="w-5 h-5" />
+          <span>INNSTILLINGER</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md bg-card border-border">
