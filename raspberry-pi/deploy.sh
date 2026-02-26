@@ -9,13 +9,19 @@ echo "=== IBC Fyllesystem - Komplett Deployment ==="
 echo "[1/6] Stopper eksisterende tjenester..."
 sudo systemctl stop ibc-filling 2>/dev/null || true
 
-# Last ned nyeste backend
-echo "[2/6] Laster ned backend (server.py)..."
+# Last ned nyeste backend og requirements
+echo "[2/7] Laster ned backend (server.py + requirements)..."
 wget -q -O /home/menstad/server.py https://raw.githubusercontent.com/sturla1993/ca-filling/main/raspberry-pi/server.py
+wget -q -O /tmp/requirements.txt https://raw.githubusercontent.com/sturla1993/ca-filling/main/raspberry-pi/requirements.txt
 echo "      Backend lastet ned."
 
+# Installer Python-avhengigheter
+echo "[3/7] Installerer Python-avhengigheter..."
+pip3 install -r /tmp/requirements.txt --break-system-packages 2>/dev/null || pip3 install -r /tmp/requirements.txt
+echo "      Avhengigheter installert."
+
 # Last ned nyeste frontend-bygg
-echo "[3/6] Laster ned frontend..."
+echo "[4/7] Laster ned frontend..."
 cd /tmp
 rm -rf frontend-dist 2>/dev/null || true
 mkdir -p frontend-dist
@@ -48,23 +54,29 @@ else
 fi
 echo "      Frontend installert."
 
+# Installer/oppdater Nginx-konfig
+echo "[5/7] Oppdaterer Nginx-konfigurasjon..."
+sudo wget -q -O /etc/nginx/sites-available/default https://raw.githubusercontent.com/sturla1993/ca-filling/main/raspberry-pi/nginx.conf 2>/dev/null || true
+sudo systemctl restart nginx 2>/dev/null || true
+
 # Installer systemd service
-echo "[4/6] Installerer systemd service..."
+echo "[6/7] Installerer systemd service..."
 sudo wget -q -O /etc/systemd/system/ibc-filling.service https://raw.githubusercontent.com/sturla1993/ca-filling/main/raspberry-pi/ibc-filling.service
 
 # Start tjenesten
-echo "[5/6] Starter backend-tjeneste..."
+echo "[7/7] Starter backend-tjeneste..."
 sudo systemctl daemon-reload
 sudo systemctl enable ibc-filling
 sudo systemctl start ibc-filling
 
 # Verifiser
-echo "[6/6] Verifiserer..."
+echo ""
+echo "--- Verifisering ---"
 sleep 2
 if systemctl is-active --quiet ibc-filling; then
-    echo "      ✓ Backend kjører"
+    echo "  ✓ Backend kjører"
 else
-    echo "      ✗ Backend feilet - sjekk: sudo journalctl -u ibc-filling -n 50"
+    echo "  ✗ Backend feilet - sjekk: sudo journalctl -u ibc-filling -n 50"
 fi
 
 echo ""
