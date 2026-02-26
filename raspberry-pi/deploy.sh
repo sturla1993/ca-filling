@@ -17,7 +17,7 @@ echo "      Backend lastet ned."
 
 # Installer Python-avhengigheter
 echo "[3/7] Installerer Python-avhengigheter..."
-pip3 install -r /tmp/requirements.txt --break-system-packages 2>/dev/null || pip3 install -r /tmp/requirements.txt
+pip3 install --break-system-packages -r /tmp/requirements.txt
 echo "      Avhengigheter installert."
 
 # Last ned nyeste frontend-bygg
