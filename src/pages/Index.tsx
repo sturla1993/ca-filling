@@ -395,9 +395,9 @@ const Index = () => {
       <div className="grid grid-cols-3 gap-4 flex-1 min-h-0">
         {/* Left Panel - Controls */}
         <div className="col-span-2 flex flex-col gap-3">
-          {/* Status Bar + Fill Mode - compact row */}
+          {/* Status Bar + Fill Mode - two rows */}
           <Card className="p-3 bg-card border-border flex-shrink-0">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2">
               <div className="flex items-center gap-4">
                 <StatusIndicator
                   status={pumpStatus}
@@ -418,14 +418,14 @@ const Index = () => {
               </div>
               <div>
                 {fillMode !== "idle" ? (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/20 rounded border border-primary">
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-primary/20 rounded border border-primary w-fit">
                     <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
                     <span className="font-semibold text-foreground text-base uppercase">
                       {fillMode === "coarse" ? "Grovfylling" : "Finfylling"}
                     </span>
                   </div>
                 ) : (
-                  <div className="px-3 py-1.5 bg-muted rounded">
+                  <div className="px-3 py-1.5 bg-muted rounded w-fit">
                     <span className="text-muted-foreground text-base">Inaktiv</span>
                   </div>
                 )}
@@ -447,9 +447,9 @@ const Index = () => {
                     : 'border-border bg-card hover:border-primary hover:bg-primary/10 active:scale-[0.98]'
               }`}
             >
-              <Droplets className={`w-10 h-10 ${isTankRunning ? 'text-status-running' : 'text-primary'}`} />
+              <Droplets className={`w-12 h-12 ${isTankRunning ? 'text-status-running' : 'text-primary'}`} />
               <div className="flex flex-col items-start">
-                <span className="text-2xl font-bold">{isTankRunning ? 'STOPP VANN' : 'START VANN'}</span>
+                <span className="text-3xl font-bold">{isTankRunning ? 'STOPP VANN' : 'START VANN'}</span>
                 <span className={`text-sm font-semibold ${
                   isTankRunning ? 'text-status-running' : 'text-muted-foreground'
                 }`}>
@@ -473,9 +473,9 @@ const Index = () => {
                     : 'border-border bg-card hover:border-primary hover:bg-primary/10 active:scale-[0.98]'
               }`}
             >
-              <Package className={`w-10 h-10 ${isSiloRunning ? 'text-status-running' : 'text-primary'}`} />
+              <Package className={`w-12 h-12 ${isSiloRunning ? 'text-status-running' : 'text-primary'}`} />
               <div className="flex flex-col items-start">
-                <span className="text-2xl font-bold">{isSiloRunning ? 'STOPP TØRRSTOFF' : 'START TØRRSTOFF'}</span>
+                <span className="text-3xl font-bold">{isSiloRunning ? 'STOPP TØRRSTOFF' : 'START TØRRSTOFF'}</span>
                 <span className={`text-sm font-semibold ${
                   isSiloRunning ? 'text-status-running' : 'text-muted-foreground'
                 }`}>
@@ -496,7 +496,7 @@ const Index = () => {
                 label="NØDSTOPP"
                 status={fillMode !== "idle" ? "stopped" : "idle"}
                 onClick={handleEmergencyStop}
-                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive h-20"
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive h-28"
               />
             </Card>
             <Card className="p-3 bg-card border-border">
@@ -505,7 +505,7 @@ const Index = () => {
                 label="Nullstill"
                 status="idle"
                 onClick={resetFilling}
-                className="bg-secondary hover:bg-secondary/80 h-20"
+                className="bg-secondary hover:bg-secondary/80 h-28"
               />
             </Card>
           </div>
