@@ -37,11 +37,13 @@ const Index = () => {
   const [tankTemp, setTankTemp] = useState(22.5);
   const [tankTarget, setTankTarget] = useState(500);
   const [siloTarget, setSiloTarget] = useState(500);
+  const [tankFineThreshold, setTankFineThreshold] = useState(450);
   const [tankOverrun, setTankOverrun] = useState(5);
   const [siloOverrun, setSiloOverrun] = useState(5);
   const [fillMode, setFillMode] = useState<FillMode>("idle");
   const [pumpStatus, setPumpStatus] = useState<EquipmentStatus>("idle");
   const [valveStatus, setValveStatus] = useState<EquipmentStatus>("idle");
+  const [fineValveStatus, setFineValveStatus] = useState<EquipmentStatus>("idle");
   const [damperStatus, setDamperStatus] = useState<EquipmentStatus>("idle");
   const [isFillingFromTank, setIsFillingFromTank] = useState(false);
   const [tankWeight, setTankWeight] = useState(0);
@@ -62,27 +64,25 @@ const Index = () => {
     
     const pumpOn = data.relays.pump;
     const valveOn = data.relays.valve;
+    const fineValveOn = data.relays.fine_valve;
     const damperOn = data.relays.damper;
     
     setPumpStatus(pumpOn ? "running" : "idle");
     setValveStatus(valveOn ? "running" : "idle");
+    setFineValveStatus(fineValveOn ? "running" : "idle");
     setDamperStatus(damperOn ? "running" : "idle");
     
     // Bestem fyllemodus basert på relé-status
-    if (pumpOn || valveOn) {
+    if (pumpOn || valveOn || fineValveOn) {
       setIsFillingFromTank(true);
-      if (data.state.tank_weight >= data.state.tank_target * 0.9) {
+      if (fineValveOn) {
         setFillMode("fine");
       } else {
         setFillMode("coarse");
       }
     } else if (damperOn) {
       setIsFillingFromTank(false);
-      if (data.state.silo_weight >= data.state.silo_target * 0.9) {
-        setFillMode("fine");
-      } else {
-        setFillMode("coarse");
-      }
+      setFillMode("coarse");
     } else {
       setFillMode("idle");
     }
@@ -138,9 +138,14 @@ const Index = () => {
           setTankWeight(prev => {
             const newWeight = prev + fillRate;
             
-            if (fillMode === "coarse" && newWeight >= tankTarget * 0.9) {
+            // Bytt til finfylling ved definert terskel
+            if (fillMode === "coarse" && newWeight >= tankFineThreshold) {
               setFillMode("fine");
-              toast.info("Bytter til finfylling");
+              // Slå av pumpe+grovventil, start finventil
+              setPumpStatus("idle");
+              setValveStatus("idle");
+              setFineValveStatus("running");
+              toast.info("Bytter til finfylling (ventil fin)");
             }
             
             if (newWeight >= (tankTarget - tankOverrun)) {
@@ -156,11 +161,6 @@ const Index = () => {
           setSiloWeight(prev => {
             const newWeight = prev + fillRate;
             
-            if (fillMode === "coarse" && newWeight >= siloTarget * 0.9) {
-              setFillMode("fine");
-              toast.info("Bytter til finfylling");
-            }
-            
             if (newWeight >= (siloTarget - siloOverrun)) {
               toast.success(`Fylling fra silo fullført! Vekt: ${newWeight.toFixed(1)} kg`);
               setLastSiloFillResult({ weight: newWeight, target: siloTarget });
@@ -175,7 +175,7 @@ const Index = () => {
       
       return () => clearInterval(interval);
     }
-  }, [useSimulation, fillMode, tankTarget, siloTarget, tankOverrun, siloOverrun, isFillingFromTank]);
+  }, [useSimulation, fillMode, tankTarget, siloTarget, tankFineThreshold, tankOverrun, siloOverrun, isFillingFromTank]);
 
   // Sjekk om forrige fylling var utenfor målpunkt (±5% toleranse)
   const checkDeviationWarning = (source: FillSource): boolean => {
@@ -212,21 +212,25 @@ const Index = () => {
         startFill('tank');
       } else {
         setIsFillingFromTank(true);
-        const fillPercentage = (tankWeight / tankTarget) * 100;
-        setFillMode(fillPercentage >= 90 ? "fine" : "coarse");
-        setPumpStatus("running");
-        setValveStatus("running");
-        toast.success("Starter fylling fra tank");
+        // Sjekk om vi skal starte i fin- eller grovmodus
+        if (tankWeight >= tankFineThreshold) {
+          setFillMode("fine");
+          setFineValveStatus("running");
+        } else {
+          setFillMode("coarse");
+          setPumpStatus("running");
+          setValveStatus("running");
+        }
+        toast.success("Starter vannfylling");
       }
     } else if (source === "silo") {
       if (isConnected) {
         startFill('silo');
       } else {
         setIsFillingFromTank(false);
-        const fillPercentage = (siloWeight / siloTarget) * 100;
-        setFillMode(fillPercentage >= 90 ? "fine" : "coarse");
+        setFillMode("coarse");
         setDamperStatus("running");
-        toast.success("Starter fylling fra silo");
+        toast.success("Starter tørrstofffylling");
       }
     }
   };
@@ -278,6 +282,7 @@ const Index = () => {
     setFillMode("idle");
     setPumpStatus("idle");
     setValveStatus("idle");
+    setFineValveStatus("idle");
     setDamperStatus("idle");
   };
 
@@ -313,11 +318,13 @@ const Index = () => {
   const handleSettingsSave = (
     newTankTarget: number, 
     newSiloTarget: number,
+    newTankFineThreshold: number,
     newTankOverrun: number,
     newSiloOverrun: number
   ) => {
     setTankTarget(newTankTarget);
     setSiloTarget(newSiloTarget);
+    setTankFineThreshold(newTankFineThreshold);
     setTankOverrun(newTankOverrun);
     setSiloOverrun(newSiloOverrun);
     
@@ -325,6 +332,7 @@ const Index = () => {
       updateSettings({
         tank_target: newTankTarget,
         silo_target: newSiloTarget,
+        tank_fine_threshold: newTankFineThreshold,
         tank_overrun: newTankOverrun,
         silo_overrun: newSiloOverrun
       });
@@ -334,7 +342,7 @@ const Index = () => {
   };
 
   // Sjekk om den andre kilden kjører
-  const isTankRunning = pumpStatus === "running" || valveStatus === "running";
+  const isTankRunning = pumpStatus === "running" || valveStatus === "running" || fineValveStatus === "running";
   const isSiloRunning = damperStatus === "running";
 
   return (
@@ -392,6 +400,7 @@ const Index = () => {
           <SettingsDialog
             tankTarget={tankTarget}
             siloTarget={siloTarget}
+            tankFineThreshold={tankFineThreshold}
             tankOverrun={tankOverrun}
             siloOverrun={siloOverrun}
             onSave={handleSettingsSave}
@@ -413,7 +422,11 @@ const Index = () => {
                 />
                 <StatusIndicator
                   status={valveStatus}
-                  label={`Ventil: ${valveStatus === "running" ? "Åpen" : "Lukket"}`}
+                  label={`Ventil (grov): ${valveStatus === "running" ? "Åpen" : "Lukket"}`}
+                />
+                <StatusIndicator
+                  status={fineValveStatus}
+                  label={`Ventil (fin): ${fineValveStatus === "running" ? "Åpen" : "Lukket"}`}
                 />
                 <StatusIndicator
                   status={damperStatus}
