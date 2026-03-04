@@ -31,13 +31,24 @@ type FillMode = "idle" | "coarse" | "fine";
 type EquipmentStatus = "running" | "stopped" | "idle";
 type FillSource = "tank" | "silo" | null;
 
+const SETTINGS_KEY = 'ibc-settings';
+
+const loadSettings = () => {
+  try {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return null;
+};
+
 const Index = () => {
+  const saved = loadSettings();
   // State management
-  const [tankTarget, setTankTarget] = useState(500);
-  const [siloTarget, setSiloTarget] = useState(500);
-  const [tankFineThreshold, setTankFineThreshold] = useState(450);
-  const [tankOverrun, setTankOverrun] = useState(5);
-  const [siloOverrun, setSiloOverrun] = useState(5);
+  const [tankTarget, setTankTarget] = useState(saved?.tankTarget ?? 500);
+  const [siloTarget, setSiloTarget] = useState(saved?.siloTarget ?? 500);
+  const [tankFineThreshold, setTankFineThreshold] = useState(saved?.tankFineThreshold ?? 450);
+  const [tankOverrun, setTankOverrun] = useState(saved?.tankOverrun ?? 5);
+  const [siloOverrun, setSiloOverrun] = useState(saved?.siloOverrun ?? 5);
   const [fillMode, setFillMode] = useState<FillMode>("idle");
   const [pumpStatus, setPumpStatus] = useState<EquipmentStatus>("idle");
   const [valveStatus, setValveStatus] = useState<EquipmentStatus>("idle");
@@ -101,7 +112,7 @@ const Index = () => {
     onConnectionChange: handleConnectionChange
   });
 
-  const totalTarget = tankTarget + siloTarget;
+  const totalTarget = tankTarget + siloTarget; // kept for simulation logic
 
 
   // Simulering av fylleprosess (kun når ikke koblet til Pi)
@@ -270,6 +281,15 @@ const Index = () => {
     setTankOverrun(newTankOverrun);
     setSiloOverrun(newSiloOverrun);
     
+    // Persist to localStorage
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      tankTarget: newTankTarget,
+      siloTarget: newSiloTarget,
+      tankFineThreshold: newTankFineThreshold,
+      tankOverrun: newTankOverrun,
+      siloOverrun: newSiloOverrun
+    }));
+    
     if (isConnected) {
       updateSettings({
         tank_target: newTankTarget,
@@ -279,8 +299,6 @@ const Index = () => {
         silo_overrun: newSiloOverrun
       });
     }
-    
-    
   };
 
   // Sjekk om den andre kilden kjører
@@ -479,8 +497,8 @@ const Index = () => {
           <div className="flex-1 min-h-0">
             <IBCVisualization
               currentWeight={currentWeight}
-              targetWeight={totalTarget}
-              maxCapacity={totalTarget}
+              tankTarget={tankTarget}
+              siloTarget={siloTarget}
               tankWeight={currentWeight}
               siloWeight={0}
             />
