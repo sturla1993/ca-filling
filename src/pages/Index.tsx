@@ -46,7 +46,7 @@ const Index = () => {
   const [isFillingFromTank, setIsFillingFromTank] = useState(false);
   const [tankWeight, setTankWeight] = useState(0);
   const [siloWeight, setSiloWeight] = useState(0);
-  const [useSimulation, setUseSimulation] = useState(true);
+  const [useSimulation, setUseSimulation] = useState(false);
   
   // Sporing av forrige fylling for avviksvarsler
   const [lastTankFillResult, setLastTankFillResult] = useState<{ weight: number; target: number } | null>(null);
