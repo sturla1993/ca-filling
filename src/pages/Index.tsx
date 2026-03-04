@@ -139,24 +139,19 @@ const Index = () => {
 
   // Sjekk om vekten er utenfor forventet område ved start
   const checkWeightWarning = (source: FillSource): boolean => {
-    const tolerance = 0.05; // 5% toleranse
+    const tolerance = 2; // ±2 kg
     
     if (source === "tank") {
-      // Ved vannfylling forventer vi ~0 kg (tom IBC)
-      // Godta alt under 5% av tankTarget
-      const expectedWeight = 0;
-      if (currentWeight > tankTarget * tolerance) {
+      if (currentWeight > tolerance) {
         setWarningMessage(
-          `Utenfor angitt vekt. Vekt nå: ${currentWeight} kg (forventet ~${expectedWeight} kg). Start fylling?`
+          `Utenfor angitt vekt. Vekt nå: ${currentWeight} kg (forventet ~0 kg). Start fylling?`
         );
         return true;
       }
     }
     
     if (source === "silo") {
-      // Ved tørrstofffylling forventer vi ~tankTarget kg (etter vannfylling)
-      const deviation = Math.abs(currentWeight - tankTarget) / tankTarget;
-      if (deviation > tolerance) {
+      if (Math.abs(currentWeight - tankTarget) > tolerance) {
         setWarningMessage(
           `Utenfor angitt vekt. Vekt nå: ${currentWeight} kg (forventet ~${tankTarget} kg). Start fylling?`
         );
