@@ -142,6 +142,7 @@ class WeightSensor:
         self.serial_conn = None
         self._last_weight = 0.0
         self._simulated_weight = 0.0
+        self._lock = threading.Lock()
         
         if ON_RASPBERRY_PI and not SIMULATE_WEIGHT:
             try:
@@ -158,35 +159,42 @@ class WeightSensor:
                 print(f"❌ Kunne ikke koble til Kern vekt: {e}")
     
     def read_weight(self) -> float:
-        """Les vekt i kg fra Kern vektindikator via RS-232"""
+        """Les vekt i kg fra Kern vektindikator via RS-232 (trådsikker)"""
         if not self.serial_conn or SIMULATE_WEIGHT:
             return self._simulated_weight
         
-        try:
-            # Send Kern-kommando for å be om vekt (standard: 'w' eller 's')
-            self.serial_conn.write(b'w\r\n')
-            time.sleep(0.05)
-            
-            response = self.serial_conn.readline().decode('ascii', errors='ignore').strip()
-            
-            if response:
-                # Parse Kern-respons, typisk format: "S S     123.45 kg"
-                # Fjern bokstaver og enheter, behold tall
-                weight_str = ''
-                for part in response.split():
-                    try:
-                        weight_str = part
-                        val = float(part)
-                        self._last_weight = val
-                        return val
-                    except ValueError:
-                        continue
-            
-            return self._last_weight
-            
-        except Exception as e:
-            print(f"❌ Kern vekt-lesefeil: {e}")
-            return self._last_weight
+        with self._lock:
+            try:
+                # Flush input-buffer for å unngå gamle/korrupte data
+                self.serial_conn.reset_input_buffer()
+                
+                # Send Kern-kommando for å be om vekt
+                self.serial_conn.write(b'w\r\n')
+                time.sleep(0.1)  # Gi Kern tid til å svare
+                
+                response = self.serial_conn.readline().decode('ascii', errors='ignore').strip()
+                
+                if response:
+                    # Parse Kern-respons, typisk format: "S S     123.45 kg"
+                    for part in response.split():
+                        try:
+                            val = float(part)
+                            self._last_weight = val
+                            return val
+                        except ValueError:
+                            continue
+                
+                return self._last_weight
+                
+            except Exception as e:
+                print(f"❌ Kern vekt-lesefeil: {e}")
+                return self._last_weight
+    
+    def get_cached_weight(self) -> float:
+        """Returner sist leste vekt uten å kontakte seriellporten"""
+        if SIMULATE_WEIGHT:
+            return self._simulated_weight
+        return self._last_weight
     
     def simulate_add_weight(self, kg: float):
         self._simulated_weight = min(WEIGHT_MAX_KG, self._simulated_weight + kg)
@@ -279,7 +287,7 @@ def sensor_broadcast_loop():
                 # Silo fylling - ca 10 kg/sek
                 system_state['silo_weight'] += 1.0
         else:
-            # Ekte vekt fra Kern via RS-232
+            # Ekte vekt fra Kern via RS-232 — kun én lesing per iterasjon
             real_weight = weight_sensor.read_weight()
             if system_state['fill_source'] == 'tank' or not system_state['filling']:
                 system_state['tank_weight'] = real_weight
@@ -292,12 +300,12 @@ def sensor_broadcast_loop():
         
         data = {
             'type': 'sensor_update',
-            'weight': weight_sensor.read_weight(),
+            'weight': weight_sensor.get_cached_weight(),
             'relays': relay_controller.get_states(),
             'state': system_state
         }
         socketio.emit('sensor_data', data)
-        time.sleep(0.1)
+        time.sleep(0.2)
 
 
 # ============== REST API ==============
@@ -306,7 +314,7 @@ def sensor_broadcast_loop():
 def get_status():
     """Hent systemstatus"""
     return jsonify({
-        'weight': weight_sensor.read_weight(),
+        'weight': weight_sensor.get_cached_weight(),
         'relays': relay_controller.get_states(),
         'state': system_state,
         'on_raspberry_pi': ON_RASPBERRY_PI
@@ -414,7 +422,7 @@ def reset_system():
         system_state['silo_weight'] = 0
     else:
         # Synkroniser med ekte vekt (vil være 0 etter tare)
-        current_weight = weight_sensor.read_weight()
+        current_weight = weight_sensor.get_cached_weight()
         system_state['tank_weight'] = current_weight
         system_state['silo_weight'] = current_weight
     print("🔄 System nullstilt")
@@ -474,7 +482,7 @@ def handle_reset():
         system_state['tank_weight'] = 0
         system_state['silo_weight'] = 0
     else:
-        current_weight = weight_sensor.read_weight()
+        current_weight = weight_sensor.get_cached_weight()
         system_state['tank_weight'] = current_weight
         system_state['silo_weight'] = current_weight
     emit('reset_complete', {})
