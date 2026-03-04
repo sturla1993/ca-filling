@@ -5,4 +5,4 @@ flask-cors>=4.0.0
 python-socketio>=5.10.0
 eventlet>=0.33.3
 pyserial>=3.5
-lgpio>=0.6
+# lgpio er forhåndsinstallert på Raspberry Pi OS - ikke installer via pip
