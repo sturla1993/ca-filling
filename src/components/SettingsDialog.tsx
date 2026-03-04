@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Settings, Droplets, Package } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Settings, Droplets, Package, Monitor } from "lucide-react";
 
 interface SettingsDialogProps {
   tankTarget: number;
@@ -12,10 +13,12 @@ interface SettingsDialogProps {
   tankFineThreshold: number;
   tankOverrun: number;
   siloOverrun: number;
+  simulationEnabled: boolean;
   onSave: (tankTarget: number, siloTarget: number, tankFineThreshold: number, tankOverrun: number, siloOverrun: number) => void;
+  onSimulationToggle: (enabled: boolean) => void;
 }
 
-export const SettingsDialog = ({ tankTarget, siloTarget, tankFineThreshold, tankOverrun, siloOverrun, onSave }: SettingsDialogProps) => {
+export const SettingsDialog = ({ tankTarget, siloTarget, tankFineThreshold, tankOverrun, siloOverrun, simulationEnabled, onSave, onSimulationToggle }: SettingsDialogProps) => {
   const [tempTankTarget, setTempTankTarget] = useState(tankTarget);
   const [tempSiloTarget, setTempSiloTarget] = useState(siloTarget);
   const [tempTankFineThreshold, setTempTankFineThreshold] = useState(tankFineThreshold);
@@ -133,6 +136,31 @@ export const SettingsDialog = ({ tankTarget, siloTarget, tankFineThreshold, tank
                 value={tempSiloOverrun}
                 onChange={(e) => setTempSiloOverrun(Number(e.target.value))}
                 className="font-mono text-lg bg-input border-border text-foreground"
+              />
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Simulering */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-primary">
+              <Monitor className="w-5 h-5" />
+              <h3 className="font-semibold text-foreground text-base">Simulering</h3>
+            </div>
+            <div className="flex items-center justify-between pl-7">
+              <div>
+                <Label htmlFor="simulation-toggle" className="text-foreground">
+                  Lokal simulering
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Simulerer fylling når Pi ikke er tilkoblet
+                </p>
+              </div>
+              <Switch
+                id="simulation-toggle"
+                checked={simulationEnabled}
+                onCheckedChange={onSimulationToggle}
               />
             </div>
           </div>

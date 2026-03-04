@@ -386,7 +386,9 @@ const Index = () => {
             tankFineThreshold={tankFineThreshold}
             tankOverrun={tankOverrun}
             siloOverrun={siloOverrun}
+            simulationEnabled={useSimulation}
             onSave={handleSettingsSave}
+            onSimulationToggle={setUseSimulation}
           />
         </div>
       </div>
