@@ -278,6 +278,13 @@ def sensor_broadcast_loop():
             if relays['damper']:
                 # Silo fylling - ca 10 kg/sek
                 system_state['silo_weight'] += 1.0
+        else:
+            # Ekte vekt fra Kern via RS-232
+            real_weight = weight_sensor.read_weight()
+            if system_state['fill_source'] == 'tank' or not system_state['filling']:
+                system_state['tank_weight'] = real_weight
+            if system_state['fill_source'] == 'silo':
+                system_state['silo_weight'] = real_weight
         
         # Sjekk automatisk overgang til finfylling og autostopp
         check_auto_fine_fill()
@@ -390,10 +397,15 @@ def reset_system():
     relay_controller.all_off()
     system_state['filling'] = False
     system_state['fill_mode'] = 'idle'
-    system_state['tank_weight'] = 0
-    system_state['silo_weight'] = 0
     if SIMULATE_WEIGHT:
         weight_sensor.simulate_reset()
+        system_state['tank_weight'] = 0
+        system_state['silo_weight'] = 0
+    else:
+        # Synkroniser med ekte vekt (vil være 0 etter tare)
+        current_weight = weight_sensor.read_weight()
+        system_state['tank_weight'] = current_weight
+        system_state['silo_weight'] = current_weight
     print("🔄 System nullstilt")
     return jsonify({'success': True})
 
@@ -446,10 +458,14 @@ def handle_reset():
     relay_controller.all_off()
     system_state['filling'] = False
     system_state['fill_mode'] = 'idle'
-    system_state['tank_weight'] = 0
-    system_state['silo_weight'] = 0
     if SIMULATE_WEIGHT:
         weight_sensor.simulate_reset()
+        system_state['tank_weight'] = 0
+        system_state['silo_weight'] = 0
+    else:
+        current_weight = weight_sensor.read_weight()
+        system_state['tank_weight'] = current_weight
+        system_state['silo_weight'] = current_weight
     emit('reset_complete', {})
     print("🔄 System nullstilt")
 
