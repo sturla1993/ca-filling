@@ -171,7 +171,7 @@ class WeightSensor:
                 
                 # Send Kern-kommando for å be om vekt
                 self.serial_conn.write(b'w\r\n')
-                time.sleep(0.15)  # Gi Kern tid til å svare
+                time.sleep(0.05)  # Kern svarer raskt nok
                 
                 # Les alt tilgjengelig data (ikke bare én linje)
                 raw = b''
@@ -190,7 +190,7 @@ class WeightSensor:
                     # Trekk ut tall (med valgfri desimal) fra responsen
                     match = re.search(r'([\d]+\.?\d*)', response)
                     if match:
-                        val = float(match.group(1))
+                        val = int(float(match.group(1)))
                         self._last_weight = val
                         return val
                     print(f"⚠️  Kunne ikke parse vekt fra: '{response}')")
