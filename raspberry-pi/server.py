@@ -5,6 +5,7 @@ Flask + WebSocket server for relékontroll og sensoravlesning
 """
 
 import os
+import re
 import time
 import json
 import threading
@@ -185,16 +186,14 @@ class WeightSensor:
                 response = raw.decode('ascii', errors='ignore').strip()
                 
                 if response:
-                    # Parse Kern-respons, typisk format: "S S     123.45 kg"
-                    for part in response.split():
-                        try:
-                            val = float(part)
-                            self._last_weight = val
-                            print(f"⚖️  Vekt: {val:.2f} kg (raw: '{response}')")
-                            return val
-                        except ValueError:
-                            continue
-                    print(f"⚠️  Kunne ikke parse vekt fra: '{response}'")
+                    # Parse Kern-respons, format: "ST,G      212kg"
+                    # Trekk ut tall (med valgfri desimal) fra responsen
+                    match = re.search(r'([\d]+\.?\d*)', response)
+                    if match:
+                        val = float(match.group(1))
+                        self._last_weight = val
+                        return val
+                    print(f"⚠️  Kunne ikke parse vekt fra: '{response}')")
                 else:
                     print("⚠️  Tomt svar fra Kern")
                 
