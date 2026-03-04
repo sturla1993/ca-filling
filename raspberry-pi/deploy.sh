@@ -40,7 +40,8 @@ if command -v npm &> /dev/null; then
     fi
     npm install
     npm run build
-    sudo cp -r dist/* /var/www/html/
+    sudo mkdir -p /var/www/ibc-app
+    sudo cp -r dist/* /var/www/ibc-app/
 else
     echo "      Laster ned ferdigbygd frontend..."
     wget -q -O frontend.tar.gz https://github.com/sturla1993/ca-filling/releases/latest/download/frontend.tar.gz 2>/dev/null || {
@@ -49,7 +50,8 @@ else
     }
     if [ -f frontend.tar.gz ]; then
         tar -xzf frontend.tar.gz
-        sudo cp -r dist/* /var/www/html/
+        sudo mkdir -p /var/www/ibc-app
+        sudo cp -r dist/* /var/www/ibc-app/
     fi
 fi
 echo "      Frontend installert."
