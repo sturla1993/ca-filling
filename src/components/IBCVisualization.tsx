@@ -13,13 +13,19 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tan
   const [fillPercentage, setFillPercentage] = useState(0);
   const [tankPercentage, setTankPercentage] = useState(0);
   const [siloPercentage, setSiloPercentage] = useState(0);
-  const targetPercentage = (targetWeight / maxCapacity) * 100;
+  const safeWeight = isNaN(currentWeight) ? 0 : currentWeight;
+  const safeTarget = isNaN(targetWeight) || targetWeight === 0 ? 1 : targetWeight;
+  const safeMax = isNaN(maxCapacity) || maxCapacity === 0 ? 1 : maxCapacity;
+  const safeTank = isNaN(tankWeight) ? 0 : tankWeight;
+  const safeSilo = isNaN(siloWeight) ? 0 : siloWeight;
+  
+  const targetPercentage = (safeTarget / safeMax) * 100;
 
   useEffect(() => {
-    setFillPercentage((currentWeight / maxCapacity) * 100);
-    setTankPercentage((tankWeight / maxCapacity) * 100);
-    setSiloPercentage((siloWeight / maxCapacity) * 100);
-  }, [currentWeight, maxCapacity, tankWeight, siloWeight]);
+    setFillPercentage((safeWeight / safeMax) * 100);
+    setTankPercentage((safeTank / safeMax) * 100);
+    setSiloPercentage((safeSilo / safeMax) * 100);
+  }, [safeWeight, safeMax, safeTank, safeSilo]);
 
   return (
     <div className="flex flex-col items-center gap-3 p-4 bg-card rounded border border-border h-full">
@@ -73,7 +79,7 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tan
         <div className="text-center">
           <div className="text-sm text-muted-foreground mb-1">Nå</div>
           <div className="text-xl font-mono font-bold text-foreground">
-            {(currentWeight ?? 0).toFixed(1)}
+            {safeWeight.toFixed(0)}
           </div>
           <div className="text-xs text-muted-foreground">kg</div>
         </div>
@@ -81,7 +87,7 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tan
         <div className="text-center">
           <div className="text-sm text-muted-foreground mb-1">Mål</div>
           <div className="text-xl font-mono font-bold text-status-warning">
-            {targetWeight.toFixed(1)}
+            {safeTarget.toFixed(0)}
           </div>
           <div className="text-xs text-muted-foreground">kg</div>
         </div>
@@ -91,7 +97,7 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tan
       <div className="w-full bg-muted rounded-full h-2">
         <div
           className="bg-primary h-2 rounded-full transition-all duration-500"
-          style={{ width: `${Math.min((currentWeight / targetWeight) * 100, 100)}%` }}
+          style={{ width: `${Math.min((safeWeight / safeTarget) * 100, 100)}%` }}
         />
       </div>
     </div>
