@@ -236,7 +236,8 @@ system_state = {
     'tank_overrun': 5,
     'silo_overrun': 5,
     'tank_weight': 0,
-    'silo_weight': 0
+    'silo_weight': 0,
+    'fill_start_weight': 0  # Vekt fra Kern ved fyllestart (for å beregne differanse)
 }
 
 
@@ -301,11 +302,14 @@ def sensor_broadcast_loop():
                 system_state['silo_weight'] += 1.0
         else:
             # Ekte vekt fra Kern via RS-232 — kun én lesing per iterasjon
+            # Kern viser TOTALVEKT i IBC-en, så vi beregner differanse fra startvekt
             real_weight = weight_sensor.read_weight()
-            if system_state['fill_source'] == 'tank' or not system_state['filling']:
-                system_state['tank_weight'] = real_weight
-            if system_state['fill_source'] == 'silo':
-                system_state['silo_weight'] = real_weight
+            if system_state['filling']:
+                added_weight = max(0, real_weight - system_state['fill_start_weight'])
+                if system_state['fill_source'] == 'tank':
+                    system_state['tank_weight'] = added_weight
+                elif system_state['fill_source'] == 'silo':
+                    system_state['silo_weight'] = added_weight
         
         # Sjekk automatisk overgang til finfylling og autostopp
         check_auto_fine_fill()
@@ -385,9 +389,17 @@ def start_fill(source):
     if source not in ['tank', 'silo']:
         return jsonify({'error': 'Ugyldig kilde, bruk tank eller silo'}), 400
     
+    # Lagre nåværende vekt som startpunkt (Kern viser totalvekt i IBC)
+    if not SIMULATE_WEIGHT:
+        system_state['fill_start_weight'] = weight_sensor.get_cached_weight()
+    else:
+        system_state['fill_start_weight'] = 0
+    
     system_state['filling'] = True
     system_state['fill_source'] = source
     system_state['fill_mode'] = 'coarse'
+    
+    print(f"▶️ Fylling startet fra {source} (startvekt: {system_state['fill_start_weight']} kg)")
     
     if source == 'tank':
         # Start pumpe + grovventil simultant
@@ -434,10 +446,9 @@ def reset_system():
         system_state['tank_weight'] = 0
         system_state['silo_weight'] = 0
     else:
-        # Synkroniser med ekte vekt (vil være 0 etter tare)
-        current_weight = weight_sensor.get_cached_weight()
-        system_state['tank_weight'] = current_weight
-        system_state['silo_weight'] = current_weight
+        system_state['tank_weight'] = 0
+        system_state['silo_weight'] = 0
+    system_state['fill_start_weight'] = 0
     print("🔄 System nullstilt")
     return jsonify({'success': True})
 
