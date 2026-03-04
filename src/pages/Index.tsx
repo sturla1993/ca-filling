@@ -196,9 +196,8 @@ const Index = () => {
     if (source === "tank") {
       if (isConnected) {
         startFill('tank');
-      } else {
+      } else if (useSimulation) {
         setIsFillingFromTank(true);
-        // Sjekk om vi skal starte i fin- eller grovmodus
         if (tankWeight >= tankFineThreshold) {
           setFillMode("fine");
           setFineValveStatus("running");
@@ -207,16 +206,14 @@ const Index = () => {
           setPumpStatus("running");
           setValveStatus("running");
         }
-        
       }
     } else if (source === "silo") {
       if (isConnected) {
         startFill('silo');
-      } else {
+      } else if (useSimulation) {
         setIsFillingFromTank(false);
         setFillMode("coarse");
         setDamperStatus("running");
-        
       }
     }
   };
