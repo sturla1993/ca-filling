@@ -232,12 +232,12 @@ system_state = {
     'fill_mode': 'idle',       # 'idle', 'coarse', 'fine'
     'tank_target': 500,
     'silo_target': 500,
-    'tank_fine_threshold': 450,  # Vekt der finfylling starter
+    'tank_fine_threshold': 450,  # Tilsatt mengde der finfylling starter
     'tank_overrun': 5,
     'silo_overrun': 5,
-    'tank_weight': 0,
-    'silo_weight': 0,
-    'fill_start_weight': 0  # Vekt fra Kern ved fyllestart (for å beregne differanse)
+    'current_weight': 0,        # Ekte vekt fra Kern (totalvekt i IBC)
+    'fill_start_weight': 0,     # Vekt ved fyllestart (for differanseberegning)
+    'added_weight': 0           # Tilsatt mengde denne fyllingen (current - start)
 }
 
 
@@ -249,37 +249,38 @@ def check_auto_fine_fill():
         system_state['fill_source'] == 'tank' and 
         system_state['fill_mode'] == 'coarse'):
         
-        if system_state['tank_weight'] >= system_state['tank_fine_threshold']:
+        if system_state['added_weight'] >= system_state['tank_fine_threshold']:
             # Bytt til finfylling: slå av pumpe+grovventil, start finventil
             relay_controller.set_relay(RELAY_PUMP, False)
             relay_controller.set_relay(RELAY_VALVE, False)
             relay_controller.set_relay(RELAY_FINE_VALVE, True)
             system_state['fill_mode'] = 'fine'
-            print(f"🔄 Bytter til finfylling ved {system_state['tank_weight']:.1f} kg")
+            print(f"🔄 Bytter til finfylling ved {system_state['added_weight']} kg tilsatt (Kern: {system_state['current_weight']} kg)")
 
 
 def check_auto_stop():
-    """Sjekk om fylling skal stoppes automatisk (mål minus etterrenning)"""
+    """Sjekk om fylling skal stoppes automatisk basert på tilsatt mengde"""
     if not system_state['filling']:
         return
     
     source = system_state['fill_source']
+    added = system_state['added_weight']
     
     if source == 'tank':
         stop_at = system_state['tank_target'] - system_state['tank_overrun']
-        if system_state['tank_weight'] >= stop_at:
+        if added >= stop_at:
             relay_controller.all_off()
             system_state['filling'] = False
             system_state['fill_mode'] = 'idle'
-            print(f"✅ Tankfylling fullført ved {system_state['tank_weight']:.1f} kg (mål: {system_state['tank_target']} kg)")
+            print(f"✅ Tankfylling fullført: {added} kg tilsatt (mål: {system_state['tank_target']} kg, Kern: {system_state['current_weight']} kg)")
     
     elif source == 'silo':
         stop_at = system_state['silo_target'] - system_state['silo_overrun']
-        if system_state['silo_weight'] >= stop_at:
+        if added >= stop_at:
             relay_controller.all_off()
             system_state['filling'] = False
             system_state['fill_mode'] = 'idle'
-            print(f"✅ Silofylling fullført ved {system_state['silo_weight']:.1f} kg (mål: {system_state['silo_target']} kg)")
+            print(f"✅ Silofylling fullført: {added} kg tilsatt (mål: {system_state['silo_target']} kg, Kern: {system_state['current_weight']} kg)")
 
 
 # ============== BAKGRUNNSTRÅD FOR SENSORDATA ==============
@@ -292,24 +293,19 @@ def sensor_broadcast_loop():
         relays = relay_controller.get_states()
         if SIMULATE_WEIGHT:
             if relays['pump'] or relays['valve']:
-                # Grovfylling tank - ca 10 kg/sek
-                system_state['tank_weight'] += 1.0
+                system_state['current_weight'] += 1.0
             if relays['fine_valve']:
-                # Finfylling tank - ca 1 kg/sek
-                system_state['tank_weight'] += 0.1
+                system_state['current_weight'] += 0.1
             if relays['damper']:
-                # Silo fylling - ca 10 kg/sek
-                system_state['silo_weight'] += 1.0
+                system_state['current_weight'] += 1.0
         else:
-            # Ekte vekt fra Kern via RS-232 — kun én lesing per iterasjon
-            # Kern viser TOTALVEKT i IBC-en, så vi beregner differanse fra startvekt
+            # Ekte vekt fra Kern via RS-232
             real_weight = weight_sensor.read_weight()
-            if system_state['filling']:
-                added_weight = max(0, real_weight - system_state['fill_start_weight'])
-                if system_state['fill_source'] == 'tank':
-                    system_state['tank_weight'] = added_weight
-                elif system_state['fill_source'] == 'silo':
-                    system_state['silo_weight'] = added_weight
+            system_state['current_weight'] = real_weight
+        
+        # Beregn tilsatt mengde hvis fylling pågår
+        if system_state['filling']:
+            system_state['added_weight'] = max(0, system_state['current_weight'] - system_state['fill_start_weight'])
         
         # Sjekk automatisk overgang til finfylling og autostopp
         check_auto_fine_fill()
@@ -443,11 +439,8 @@ def reset_system():
     system_state['fill_mode'] = 'idle'
     if SIMULATE_WEIGHT:
         weight_sensor.simulate_reset()
-        system_state['tank_weight'] = 0
-        system_state['silo_weight'] = 0
-    else:
-        system_state['tank_weight'] = 0
-        system_state['silo_weight'] = 0
+        system_state['current_weight'] = 0
+    system_state['added_weight'] = 0
     system_state['fill_start_weight'] = 0
     print("🔄 System nullstilt")
     return jsonify({'success': True})

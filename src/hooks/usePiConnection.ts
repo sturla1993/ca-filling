@@ -16,8 +16,9 @@ export interface SensorData {
     silo_target: number;
     tank_overrun: number;
     silo_overrun: number;
-    tank_weight: number;
-    silo_weight: number;
+    current_weight: number;
+    added_weight: number;
+    fill_start_weight: number;
   };
 }
 
