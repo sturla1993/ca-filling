@@ -44,7 +44,6 @@ const Index = () => {
   const [fineValveStatus, setFineValveStatus] = useState<EquipmentStatus>("idle");
   const [damperStatus, setDamperStatus] = useState<EquipmentStatus>("idle");
   const [currentWeight, setCurrentWeight] = useState(0);
-  const [addedWeight, setAddedWeight] = useState(0);
   const [useSimulation, setUseSimulation] = useState(false);
   
   // Sporing av forrige fylling for avviksvarsler
@@ -79,7 +78,6 @@ const Index = () => {
     }
     
     setCurrentWeight(data.state.current_weight);
-    setAddedWeight(data.state.added_weight);
   }, []);
 
   const handleConnectionChange = useCallback((connected: boolean) => {
@@ -114,22 +112,21 @@ const Index = () => {
       const interval = setInterval(() => {
         setCurrentWeight(prev => {
           const newWeight = prev + fillRate;
-          setAddedWeight(a => a + fillRate);
           
           if (isFillingTank) {
-            if (fillMode === "coarse" && (newWeight - (prev - addedWeight)) >= tankFineThreshold) {
+            if (fillMode === "coarse" && newWeight >= tankFineThreshold) {
               setFillMode("fine");
               setPumpStatus("idle");
               setValveStatus("idle");
               setFineValveStatus("running");
             }
-            if (addedWeight + fillRate >= (tankTarget - tankOverrun)) {
-              setLastTankFillResult({ weight: addedWeight + fillRate, target: tankTarget });
+            if (newWeight >= (tankTarget - tankOverrun)) {
+              setLastTankFillResult({ weight: newWeight, target: tankTarget });
               stopFillingLocal();
             }
           } else {
-            if (addedWeight + fillRate >= (siloTarget - siloOverrun)) {
-              setLastSiloFillResult({ weight: addedWeight + fillRate, target: siloTarget });
+            if (newWeight >= (siloTarget - siloOverrun)) {
+              setLastSiloFillResult({ weight: newWeight, target: siloTarget });
               stopFillingLocal();
             }
           }
@@ -140,7 +137,7 @@ const Index = () => {
       
       return () => clearInterval(interval);
     }
-  }, [useSimulation, fillMode, tankTarget, siloTarget, tankFineThreshold, tankOverrun, siloOverrun, pumpStatus, valveStatus, fineValveStatus, addedWeight]);
+  }, [useSimulation, fillMode, tankTarget, siloTarget, tankFineThreshold, tankOverrun, siloOverrun, pumpStatus, valveStatus, fineValveStatus]);
 
   // Sjekk om forrige fylling var utenfor målpunkt (±5% toleranse)
   const checkDeviationWarning = (source: FillSource): boolean => {
@@ -176,8 +173,7 @@ const Index = () => {
       if (isConnected) {
         startFill('tank');
       } else if (useSimulation) {
-        setAddedWeight(0);
-        if (addedWeight >= tankFineThreshold) {
+        if (currentWeight >= tankFineThreshold) {
           setFillMode("fine");
           setFineValveStatus("running");
         } else {
@@ -190,7 +186,6 @@ const Index = () => {
       if (isConnected) {
         startFill('silo');
       } else if (useSimulation) {
-        setAddedWeight(0);
         setFillMode("coarse");
         setDamperStatus("running");
       }
@@ -271,7 +266,6 @@ const Index = () => {
     } else {
       stopFillingLocal();
       setCurrentWeight(0);
-      setAddedWeight(0);
     }
   };
 
