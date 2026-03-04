@@ -170,9 +170,19 @@ class WeightSensor:
                 
                 # Send Kern-kommando for å be om vekt
                 self.serial_conn.write(b'w\r\n')
-                time.sleep(0.1)  # Gi Kern tid til å svare
+                time.sleep(0.15)  # Gi Kern tid til å svare
                 
-                response = self.serial_conn.readline().decode('ascii', errors='ignore').strip()
+                # Les alt tilgjengelig data (ikke bare én linje)
+                raw = b''
+                while self.serial_conn.in_waiting > 0:
+                    raw += self.serial_conn.read(self.serial_conn.in_waiting)
+                    time.sleep(0.02)
+                
+                if not raw:
+                    # Fallback: prøv readline med timeout
+                    raw = self.serial_conn.readline()
+                
+                response = raw.decode('ascii', errors='ignore').strip()
                 
                 if response:
                     # Parse Kern-respons, typisk format: "S S     123.45 kg"
@@ -180,9 +190,13 @@ class WeightSensor:
                         try:
                             val = float(part)
                             self._last_weight = val
+                            print(f"⚖️  Vekt: {val:.2f} kg (raw: '{response}')")
                             return val
                         except ValueError:
                             continue
+                    print(f"⚠️  Kunne ikke parse vekt fra: '{response}'")
+                else:
+                    print("⚠️  Tomt svar fra Kern")
                 
                 return self._last_weight
                 
