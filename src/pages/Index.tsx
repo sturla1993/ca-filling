@@ -46,12 +46,10 @@ const Index = () => {
   const [currentWeight, setCurrentWeight] = useState(0);
   const [useSimulation, setUseSimulation] = useState(false);
   
-  // Sporing av forrige fylling for avviksvarsler
-  const [lastTankFillResult, setLastTankFillResult] = useState<{ weight: number; target: number } | null>(null);
-  const [lastSiloFillResult, setLastSiloFillResult] = useState<{ weight: number; target: number } | null>(null);
+  // Varsel ved uventet startvekt
   const [pendingFillSource, setPendingFillSource] = useState<FillSource>(null);
-  const [showDeviationWarning, setShowDeviationWarning] = useState(false);
-  const [deviationMessage, setDeviationMessage] = useState("");
+  const [showWeightWarning, setShowWeightWarning] = useState(false);
+  const [warningMessage, setWarningMessage] = useState("");
 
   // Pi-tilkobling - oppdater alltid når vi får data fra Pi
   const handleSensorData = useCallback((data: SensorData) => {
@@ -123,12 +121,10 @@ const Index = () => {
               setFineValveStatus("running");
             }
             if (newWeight >= (tankTarget - tankOverrun)) {
-              setLastTankFillResult({ weight: newWeight, target: tankTarget });
               stopFillingLocal();
             }
           } else {
             if (newWeight >= (siloTarget - siloOverrun)) {
-              setLastSiloFillResult({ weight: newWeight, target: siloTarget });
               stopFillingLocal();
             }
           }
@@ -141,25 +137,28 @@ const Index = () => {
     }
   }, [useSimulation, fillMode, tankTarget, siloTarget, tankFineThreshold, tankOverrun, siloOverrun, pumpStatus, valveStatus, fineValveStatus]);
 
-  // Sjekk om forrige fylling var utenfor målpunkt (±5% toleranse)
-  const checkDeviationWarning = (source: FillSource): boolean => {
+  // Sjekk om vekten er utenfor forventet område ved start
+  const checkWeightWarning = (source: FillSource): boolean => {
     const tolerance = 0.05; // 5% toleranse
     
-    if (source === "tank" && lastTankFillResult) {
-      const deviation = Math.abs(lastTankFillResult.weight - lastTankFillResult.target) / lastTankFillResult.target;
-      if (deviation > tolerance) {
-        setDeviationMessage(
-          `Forrige tankfylling avvek fra mål: ${lastTankFillResult.weight.toFixed(1)} kg vs mål ${lastTankFillResult.target.toFixed(1)} kg (${(deviation * 100).toFixed(1)}% avvik)`
+    if (source === "tank") {
+      // Ved vannfylling forventer vi ~0 kg (tom IBC)
+      // Godta alt under 5% av tankTarget
+      const expectedWeight = 0;
+      if (currentWeight > tankTarget * tolerance) {
+        setWarningMessage(
+          `Utenfor angitt vekt. Vekt nå: ${currentWeight} kg (forventet ~${expectedWeight} kg). Start fylling?`
         );
         return true;
       }
     }
     
-    if (source === "silo" && lastSiloFillResult) {
-      const deviation = Math.abs(lastSiloFillResult.weight - lastSiloFillResult.target) / lastSiloFillResult.target;
+    if (source === "silo") {
+      // Ved tørrstofffylling forventer vi ~tankTarget kg (etter vannfylling)
+      const deviation = Math.abs(currentWeight - tankTarget) / tankTarget;
       if (deviation > tolerance) {
-        setDeviationMessage(
-          `Forrige silofylling avvek fra mål: ${lastSiloFillResult.weight.toFixed(1)} kg vs mål ${lastSiloFillResult.target.toFixed(1)} kg (${(deviation * 100).toFixed(1)}% avvik)`
+        setWarningMessage(
+          `Utenfor angitt vekt. Vekt nå: ${currentWeight} kg (forventet ~${tankTarget} kg). Start fylling?`
         );
         return true;
       }
@@ -195,15 +194,11 @@ const Index = () => {
   };
 
   const startFillingFromTank = () => {
-    // Sjekk om silo kjører - ikke tillat samtidig
-    if (damperStatus === "running") {
-      
-      return;
-    }
+    if (damperStatus === "running") return;
     
-    if (checkDeviationWarning("tank")) {
+    if (checkWeightWarning("tank")) {
       setPendingFillSource("tank");
-      setShowDeviationWarning(true);
+      setShowWeightWarning(true);
       return;
     }
     
@@ -211,29 +206,25 @@ const Index = () => {
   };
 
   const startFillingFromSilo = () => {
-    // Sjekk om tank kjører - ikke tillat samtidig
-    if (pumpStatus === "running" || valveStatus === "running") {
-      
-      return;
-    }
+    if (pumpStatus === "running" || valveStatus === "running") return;
     
-    if (checkDeviationWarning("silo")) {
+    if (checkWeightWarning("silo")) {
       setPendingFillSource("silo");
-      setShowDeviationWarning(true);
+      setShowWeightWarning(true);
       return;
     }
     
     executeStartFill("silo");
   };
 
-  const handleDeviationConfirm = () => {
-    setShowDeviationWarning(false);
+  const handleWarningConfirm = () => {
+    setShowWeightWarning(false);
     executeStartFill(pendingFillSource);
     setPendingFillSource(null);
   };
 
-  const handleDeviationCancel = () => {
-    setShowDeviationWarning(false);
+  const handleWarningCancel = () => {
+    setShowWeightWarning(false);
     setPendingFillSource(null);
   };
 
@@ -303,24 +294,24 @@ const Index = () => {
 
   return (
     <div className="h-screen bg-background p-4 flex flex-col overflow-hidden">
-      {/* Avviksvarsel dialog */}
-      <AlertDialog open={showDeviationWarning} onOpenChange={setShowDeviationWarning}>
+      {/* Vektvarsel dialog */}
+      <AlertDialog open={showWeightWarning} onOpenChange={setShowWeightWarning}>
         <AlertDialogContent className="bg-card border-status-warning">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl text-status-warning flex items-center gap-2">
               <AlertCircle className="w-6 h-6" />
-              Avvik fra målpunkt
+              Uventet vekt
             </AlertDialogTitle>
             <AlertDialogDescription className="text-base text-foreground">
-              {deviationMessage}
+              {warningMessage}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleDeviationCancel} className="text-base">
-              Avbryt
+            <AlertDialogCancel onClick={handleWarningCancel} className="text-base">
+              Nei
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeviationConfirm} className="bg-status-warning text-background text-base">
-              Fortsett likevel
+            <AlertDialogAction onClick={handleWarningConfirm} className="bg-status-warning text-background text-base">
+              Ja
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
