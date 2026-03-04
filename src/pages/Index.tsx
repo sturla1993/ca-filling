@@ -77,7 +77,7 @@ const Index = () => {
       setFillMode("idle");
     }
     
-    setCurrentWeight(data.state.current_weight);
+    setCurrentWeight(data.state.current_weight ?? 0);
   }, []);
 
   const handleConnectionChange = useCallback((connected: boolean) => {

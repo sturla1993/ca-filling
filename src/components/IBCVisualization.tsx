@@ -73,7 +73,7 @@ export const IBCVisualization = ({ currentWeight, targetWeight, maxCapacity, tan
         <div className="text-center">
           <div className="text-sm text-muted-foreground mb-1">Nå</div>
           <div className="text-xl font-mono font-bold text-foreground">
-            {currentWeight.toFixed(1)}
+            {(currentWeight ?? 0).toFixed(1)}
           </div>
           <div className="text-xs text-muted-foreground">kg</div>
         </div>
