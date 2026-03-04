@@ -102,7 +102,8 @@ const Index = () => {
     stopFill,
     reset,
     updateSettings,
-    emergencyStop
+    emergencyStop,
+    setSimulation
   } = usePiConnection({
     onSensorData: handleSensorData,
     onConnectionChange: handleConnectionChange
@@ -381,7 +382,12 @@ const Index = () => {
             siloOverrun={siloOverrun}
             simulationEnabled={useSimulation}
             onSave={handleSettingsSave}
-            onSimulationToggle={setUseSimulation}
+            onSimulationToggle={(enabled) => {
+              setUseSimulation(enabled);
+              if (isConnected) {
+                setSimulation(enabled);
+              }
+            }}
           />
         </div>
       </div>

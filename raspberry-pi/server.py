@@ -391,6 +391,17 @@ def stop_fill():
     return jsonify({'success': True})
 
 
+@app.route('/api/simulate', methods=['POST'])
+def toggle_simulate():
+    """Slå simulering av/på fra frontend"""
+    global SIMULATE_WEIGHT
+    data = request.json
+    enabled = data.get('enabled', False)
+    SIMULATE_WEIGHT = enabled
+    print(f"🔧 Simulering {'PÅ' if enabled else 'AV'} (styrt fra frontend)")
+    return jsonify({'success': True, 'simulate_weight': SIMULATE_WEIGHT})
+
+
 @app.route('/api/reset', methods=['POST'])
 def reset_system():
     """Nullstill system via REST"""
