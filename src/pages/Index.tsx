@@ -94,9 +94,8 @@ const Index = () => {
   const handleConnectionChange = useCallback((connected: boolean) => {
     if (connected) {
       setUseSimulation(false);
-    } else {
-      setUseSimulation(true);
     }
+    // Når frakoblet: la brukerens valg i innstillinger gjelde
   }, []);
 
   const {
