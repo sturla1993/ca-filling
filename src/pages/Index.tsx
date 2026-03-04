@@ -86,9 +86,6 @@ const Index = () => {
     // Bruk tank_weight og silo_weight fra backend state
     setTankWeight(data.state.tank_weight);
     setSiloWeight(data.state.silo_weight);
-    
-    // Slå av simulering når vi mottar data
-    setUseSimulation(false);
   }, []);
 
   const handleConnectionChange = useCallback((connected: boolean) => {
