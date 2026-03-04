@@ -140,8 +140,16 @@ export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
     }
   }, []);
 
-  const simulateWeight = useCallback((addKg: number) => {
-    // Not used with REST - simulation happens on backend
+  const setSimulation = useCallback(async (enabled: boolean) => {
+    try {
+      await fetch(`${PI_URL}/api/simulate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+    } catch (e) {
+      console.error('Kunne ikke endre simulering:', e);
+    }
   }, []);
 
   return {
@@ -153,7 +161,7 @@ export const usePiConnection = (options: UsePiConnectionOptions = {}) => {
     reset,
     updateSettings,
     emergencyStop,
-    simulateWeight
+    setSimulation
   };
 };
 
