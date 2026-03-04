@@ -77,7 +77,9 @@ const Index = () => {
       setFillMode("idle");
     }
     
-    setCurrentWeight(data.state.current_weight ?? 0);
+    // Bruk current_weight fra state, fallback til weight (alltid fra Kern)
+    const w = data.state.current_weight ?? data.weight ?? 0;
+    setCurrentWeight(w);
   }, []);
 
   const handleConnectionChange = useCallback((connected: boolean) => {
